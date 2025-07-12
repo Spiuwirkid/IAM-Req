@@ -112,16 +112,16 @@ const StaffDashboard = ({ user }: StaffDashboardProps) => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+    <div className="space-y-8">
+      {/* Clean Navigation */}
+      <div className="border-b border-border">
+        <nav className="flex space-x-8">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'dashboard'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
             }`}
           >
             <BarChart3 className="h-4 w-4 inline mr-2" />
@@ -129,10 +129,10 @@ const StaffDashboard = ({ user }: StaffDashboardProps) => {
           </button>
           <button
             onClick={() => setActiveTab('catalog')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'catalog'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
             }`}
           >
             <LayoutGrid className="h-4 w-4 inline mr-2" />
@@ -141,57 +141,65 @@ const StaffDashboard = ({ user }: StaffDashboardProps) => {
         </nav>
       </div>
 
-      {/* Stats Cards */}
+      {/* Clean Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <div className="flex items-center">
-            <FileText className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Requests</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+        <div className="bg-card rounded-xl border p-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+              <FileText className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Requests</p>
+              <p className="text-2xl font-bold text-foreground">{stats.total}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <div className="flex items-center">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Approved</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.approved}</p>
+        <div className="bg-card rounded-xl border p-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Approved</p>
+              <p className="text-2xl font-bold text-foreground">{stats.approved}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <div className="flex items-center">
-            <Clock className="h-8 w-8 text-yellow-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.pending}</p>
+        <div className="bg-card rounded-xl border p-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Pending</p>
+              <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <div className="flex items-center">
-            <XCircle className="h-8 w-8 text-red-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Rejected</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.rejected}</p>
+        <div className="bg-card rounded-xl border p-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Rejected</p>
+              <p className="text-2xl font-bold text-foreground">{stats.rejected}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Requests */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="px-6 py-4 border-b border-gray-200">
+      {/* Clean Requests List */}
+      <div className="bg-card rounded-xl border">
+        <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">My Access Requests</h2>
+            <h2 className="text-lg font-semibold text-foreground">My Access Requests</h2>
             <button
               onClick={() => setActiveTab('catalog')}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Request
@@ -201,28 +209,30 @@ const StaffDashboard = ({ user }: StaffDashboardProps) => {
 
         <div className="overflow-hidden">
           {mockRequests.length === 0 ? (
-            <div className="text-center py-12">
-              <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No requests yet</h3>
-              <p className="text-gray-600 mb-4">Start by requesting access to applications</p>
+            <div className="text-center py-16">
+              <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-6">
+                <Activity className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">No requests yet</h3>
+              <p className="text-muted-foreground mb-6">Start by requesting access to applications</p>
               <button
                 onClick={() => setActiveTab('catalog')}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Browse Applications
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-border">
               {mockRequests.map((request) => (
-                <div key={request.id} className="px-6 py-4 hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedRequest(request)}>
+                <div key={request.id} className="px-6 py-4 hover:bg-accent cursor-pointer transition-colors" onClick={() => setSelectedRequest(request)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       {getStatusIcon(request.status)}
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900">{request.application}</h3>
-                        <p className="text-sm text-gray-600">Requested on {new Date(request.requestDate).toLocaleDateString()}</p>
+                        <h3 className="text-sm font-medium text-foreground">{request.application}</h3>
+                        <p className="text-sm text-muted-foreground">Requested on {new Date(request.requestDate).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <span className={getStatusBadge(request.status)}>

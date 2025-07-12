@@ -8,73 +8,90 @@ interface AuthPageProps {
 
 const AuthPage = ({ onLogin }: AuthPageProps) => {
   const [selectedRole, setSelectedRole] = useState<string>('');
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [showManagerOptions, setShowManagerOptions] = useState(false);
 
   const roles = [
     {
       id: 'staff',
-      name: 'Staff User',
+      name: 'Staff',
       description: 'Request access to applications',
       icon: User,
       email: 'staff@iam.com'
     },
     {
-      id: 'manager_a',
+      id: 'manager',
       name: 'Manager',
       description: 'Approve access requests',
       icon: UserCheck,
-      email: 'manager.a@iam.com'
+      email: 'manager@iam.com'
     },
     {
       id: 'it_admin',
       name: 'IT Admin',
-      description: 'Manage applications and campaigns',
+      description: 'Manage applications',
       icon: Settings,
       email: 'admin@iam.com'
     }
   ];
 
+  const managerOptions = [
+    { id: 'manager_a', name: 'Manager A', email: 'manager.a@iam.com' },
+    { id: 'manager_b', name: 'Manager B', email: 'manager.b@iam.com' },
+    { id: 'manager_c', name: 'Manager C', email: 'manager.c@iam.com' }
+  ];
+
   const handleRoleSelect = (role: any) => {
-    setSelectedRole(role.id);
-    setEmail(role.email);
-    setShowLoginForm(true);
+    if (role.id === 'manager') {
+      setSelectedRole('manager');
+      setShowManagerOptions(true);
+    } else {
+      // Direct login without password for other roles
+      onLogin(role.email, 'demo', role.id);
+    }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    onLogin(email, password, selectedRole);
+  const handleManagerSelect = (manager: any) => {
+    onLogin(manager.email, 'demo', manager.id);
+  };
+
+  const handleBack = () => {
+    setShowManagerOptions(false);
+    setSelectedRole('');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        {!showLoginForm ? (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="text-center mb-8">
-              <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">IAM System</h1>
-              <p className="text-gray-600">Identity & Access Management</p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        {!showManagerOptions ? (
+          <div className="bg-card rounded-xl shadow-sm border p-8 space-y-8">
+            {/* Header */}
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto">
+                <Shield className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">IAM System</h1>
+                <p className="text-muted-foreground">Select your role to continue</p>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select your role:</h2>
+            {/* Role Selection */}
+            <div className="space-y-3">
               {roles.map((role) => {
                 const IconComponent = role.icon;
                 return (
                   <button
                     key={role.id}
                     onClick={() => handleRoleSelect(role)}
-                    className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 group"
+                    className="w-full p-4 text-left border border-border rounded-lg hover:bg-accent hover:border-primary transition-all duration-200"
                   >
-                    <div className="flex items-center">
-                      <IconComponent className="h-6 w-6 text-blue-600 mr-3 group-hover:text-blue-700" />
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                        <IconComponent className="h-5 w-5 text-primary" />
+                      </div>
                       <div>
-                        <h3 className="font-medium text-gray-900 group-hover:text-blue-900">
-                          {role.name}
-                        </h3>
-                        <p className="text-sm text-gray-600">{role.description}</p>
+                        <h3 className="font-medium text-foreground">{role.name}</h3>
+                        <p className="text-sm text-muted-foreground">{role.description}</p>
                       </div>
                     </div>
                   </button>
@@ -83,59 +100,43 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="text-center mb-8">
-              <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-              <p className="text-gray-600">
-                Signing in as {roles.find(r => r.id === selectedRole)?.name}
-              </p>
+          <div className="bg-card rounded-xl shadow-sm border p-8 space-y-8">
+            {/* Header */}
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto">
+                <UserCheck className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Select Manager</h1>
+                <p className="text-muted-foreground">Choose your manager role</p>
+              </div>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+            {/* Manager Options */}
+            <div className="space-y-3">
+              {managerOptions.map((manager) => (
+                <button
+                  key={manager.id}
+                  onClick={() => handleManagerSelect(manager)}
+                  className="w-full p-4 text-left border border-border rounded-lg hover:bg-accent hover:border-primary transition-all duration-200"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                      <UserCheck className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-foreground">{manager.name}</h3>
+                      <p className="text-sm text-muted-foreground">Manager approval role</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter any password for demo"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Sign In
-              </button>
-            </form>
-
+            {/* Back Button */}
             <button
-              onClick={() => {
-                setShowLoginForm(false);
-                setSelectedRole('');
-                setEmail('');
-                setPassword('');
-              }}
-              className="w-full mt-4 text-gray-500 hover:text-gray-700 transition-colors text-sm"
+              onClick={handleBack}
+              className="w-full p-3 text-center text-muted-foreground hover:text-foreground transition-colors"
             >
               ← Back to role selection
             </button>
