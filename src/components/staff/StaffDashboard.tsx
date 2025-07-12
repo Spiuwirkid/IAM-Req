@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { 
   BarChart3, 
@@ -6,7 +5,7 @@ import {
   CheckCircle, 
   XCircle, 
   Plus,
-  Apps,
+  LayoutGrid,
   FileText,
   Activity
 } from 'lucide-react';
@@ -136,7 +135,7 @@ const StaffDashboard = ({ user }: StaffDashboardProps) => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <Apps className="h-4 w-4 inline mr-2" />
+            <LayoutGrid className="h-4 w-4 inline mr-2" />
             App Catalog
           </button>
         </nav>
