@@ -1,8 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthPage from '../components/AuthPage';
 import StaffDashboard from '../components/staff/StaffDashboard';
+import ManagerDashboard from '../components/manager/ManagerDashboard';
+import ITAdminDashboard from '../components/itadmin/ITAdminDashboard';
 import { Shield } from 'lucide-react';
 
 const Index = () => {
@@ -63,28 +64,28 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Clean Header */}
-      <header className="bg-card border-b border-border">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-blue-100">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-primary-foreground" />
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">IAM System</h1>
+              <h1 className="text-xl font-bold text-gray-900">IAM System</h1>
             </div>
             
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-gray-600">
                 {user?.name}
               </span>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                 {getRoleDisplayName(userRole || '')}
               </span>
               <button
                 onClick={handleLogout}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
                 Logout
               </button>
@@ -97,23 +98,9 @@ const Index = () => {
       <main className="max-w-6xl mx-auto py-8 px-6">
         {userRole === 'staff' && <StaffDashboard user={user} />}
         {(userRole === 'manager_a' || userRole === 'manager_b' || userRole === 'manager_c') && (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-6">
-              <Shield className="h-8 w-8 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Manager Dashboard</h2>
-            <p className="text-muted-foreground">Manager approval interface coming soon</p>
-          </div>
+          <ManagerDashboard user={user} />
         )}
-        {userRole === 'it_admin' && (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-6">
-              <Shield className="h-8 w-8 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">IT Admin Panel</h2>
-            <p className="text-muted-foreground">Administrative interface coming soon</p>
-          </div>
-        )}
+        {userRole === 'it_admin' && <ITAdminDashboard user={user} />}
       </main>
     </div>
   );
