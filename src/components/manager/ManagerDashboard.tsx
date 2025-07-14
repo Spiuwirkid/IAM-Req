@@ -1,60 +1,54 @@
 
 import { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { 
-  BarChart3, 
   Clock, 
   CheckCircle, 
   XCircle, 
-  Users,
   FileText,
-  LayoutGrid,
-  Megaphone,
-  TrendingUp,
-  Activity
+  Activity,
+  ArrowRight
 } from 'lucide-react';
-import ManagerRequests from './ManagerRequests';
-import ManagerAppList from './ManagerAppList';
-import ManagerCampaigns from './ManagerCampaigns';
 
-interface ManagerDashboardProps {
-  user: any;
-}
-
-const ManagerDashboard = ({ user }: ManagerDashboardProps) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+const ManagerDashboard = () => {
+  const { user } = useOutletContext<{ user: any }>();
 
   // Mock data - in real app this would come from Supabase
   const mockRequests = [
     {
       id: 1,
       user: 'John Doe',
-      application: 'Salesforce CRM',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+      application: 'GNS3',
       status: 'waiting',
-      requestDate: '2024-01-20',
-      reason: 'Need access for customer data management',
+      requestDate: '2025-07-10',
+      reason: 'Need access for network simulation and lab environment',
       approvers: [
-        { name: 'Manager A', status: user.name === 'Manager A' ? 'pending' : 'approved' },
-        { name: 'Manager B', status: user.name === 'Manager B' ? 'pending' : 'waiting' }
+        { name: 'Manager A', status: user?.name === 'Manager A' ? 'pending' : 'approved' },
+        { name: 'Manager B', status: user?.name === 'Manager B' ? 'pending' : 'waiting' },
+        { name: 'Manager C', status: user?.name === 'Manager C' ? 'pending' : 'waiting' }
       ]
     },
     {
       id: 2,
       user: 'Jane Smith',
-      application: 'Jira Project Management',
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b050?w=150&h=150&fit=crop&crop=face',
+      application: 'Visual Studio',
       status: 'waiting',
-      requestDate: '2024-01-19',
-      reason: 'Required for project tracking and bug management',
+      requestDate: '2025-07-08',
+      reason: 'Required for software development and coding projects',
       approvers: [
-        { name: 'Manager A', status: user.name === 'Manager A' ? 'pending' : 'waiting' }
+        { name: 'Manager A', status: user?.name === 'Manager A' ? 'pending' : 'waiting' }
       ]
     },
     {
       id: 3,
       user: 'Mike Johnson',
-      application: 'AWS Console',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+      application: 'Ubuntu Server',
       status: 'approved',
-      requestDate: '2024-01-18',
-      reason: 'Need access for cloud infrastructure management',
+      requestDate: '2025-06-18',
+      reason: 'Need SSH access for server administration and maintenance',
       approvers: [
         { name: 'Manager A', status: 'approved' },
         { name: 'Manager B', status: 'approved' }
@@ -63,211 +57,135 @@ const ManagerDashboard = ({ user }: ManagerDashboardProps) => {
   ];
 
   const stats = {
-    pending: mockRequests.filter(r => r.approvers.some(a => a.name === user.name && a.status === 'pending')).length,
-    approved: mockRequests.filter(r => r.approvers.some(a => a.name === user.name && a.status === 'approved')).length,
-    rejected: mockRequests.filter(r => r.approvers.some(a => a.name === user.name && a.status === 'rejected')).length,
+    pending: mockRequests.filter(r => r.approvers.some(a => a.name === user?.name && a.status === 'pending')).length,
+    approved: mockRequests.filter(r => r.approvers.some(a => a.name === user?.name && a.status === 'approved')).length,
+    rejected: mockRequests.filter(r => r.approvers.some(a => a.name === user?.name && a.status === 'rejected')).length,
     total: mockRequests.length
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'waiting':
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case 'rejected':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      default:
-        return <Clock className="h-5 w-5 text-gray-500" />;
-    }
   };
 
   const canApprove = (request: any) => {
     return request.approvers.some(approver => 
-      approver.name === user.name && approver.status === 'pending'
+      approver.name === user?.name && approver.status === 'pending'
     );
   };
 
-  if (activeTab === 'requests') {
-    return (
-      <ManagerRequests 
-        onBack={() => setActiveTab('dashboard')}
-        user={user}
-      />
-    );
-  }
-
-  if (activeTab === 'apps') {
-    return (
-      <ManagerAppList 
-        onBack={() => setActiveTab('dashboard')}
-        user={user}
-      />
-    );
-  }
-
-  if (activeTab === 'campaigns') {
-    return (
-      <ManagerCampaigns 
-        onBack={() => setActiveTab('dashboard')}
-        user={user}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-8">
-      {/* Navigation */}
-      <div className="bg-white rounded-lg border border-blue-100">
-        <nav className="flex space-x-8 px-6">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'dashboard'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <BarChart3 className="h-4 w-4 inline mr-2" />
-            Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('requests')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'requests'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <FileText className="h-4 w-4 inline mr-2" />
-            Requests
-            {stats.pending > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                {stats.pending}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('apps')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'apps'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4 inline mr-2" />
-            App List
-          </button>
-          <button
-            onClick={() => setActiveTab('campaigns')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'campaigns'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Megaphone className="h-4 w-4 inline mr-2" />
-            Campaigns
-          </button>
-        </nav>
-      </div>
-
-      {/* Clean Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-card rounded-xl border p-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
-              <Clock className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Pending Approval</p>
-              <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
-            </div>
+    <div className="min-h-screen">
+      {/* Welcome Header - Direct on Background */}
+      <div className="px-8 py-12">
+        <div style={{ color: '#002A58' }}>
+          <div className="text-4xl font-bold leading-tight">
+            <div>WELCOME</div>
+            <div>TO MANAGER DASHBOARD</div>
           </div>
-        </div>
-
-        <div className="bg-card rounded-xl border p-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Approved</p>
-              <p className="text-2xl font-bold text-foreground">{stats.approved}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-card rounded-xl border p-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
-              <XCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Rejected</p>
-              <p className="text-2xl font-bold text-foreground">{stats.rejected}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-card rounded-xl border p-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
-              <FileText className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Requests</p>
-              <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-            </div>
+          <div className="text-lg mt-4 tracking-wider font-medium">
+            MANAGE ACCESS REQUESTS AND APPLICATIONS
           </div>
         </div>
       </div>
 
-      {/* Recent Requests - View Only */}
-      <div className="bg-card rounded-xl border">
-        <div className="px-6 py-4 border-b border-border">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 mx-8">
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Recent Access Requests</h2>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              View All Requests →
+            <div>
+              <p className="text-sm text-yellow-600 mb-2 font-medium">Pending</p>
+              <p className="text-3xl font-bold text-yellow-700">{stats.pending}</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center">
+              <Clock className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600 mb-2 font-medium">Approved</p>
+              <p className="text-3xl font-bold text-green-700">{stats.approved}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-red-600 mb-2 font-medium">Rejected</p>
+              <p className="text-3xl font-bold text-red-700">{stats.rejected}</p>
+            </div>
+            <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
+              <XCircle className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-600 mb-2 font-medium">Total</p>
+              <p className="text-3xl font-bold text-blue-700">{stats.total}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+              <FileText className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Requests */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mx-8">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-800">Recent Access Requests</h2>
+            <button className="inline-flex items-center px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors">
+              View All Requests
+              <ArrowRight className="h-4 w-4 ml-2" />
             </button>
           </div>
         </div>
 
-        <div className="overflow-hidden">
+        <div className="p-6">
           {mockRequests.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-6">
-                <Activity className="h-8 w-8 text-primary" />
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Activity className="h-10 w-10 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">No requests yet</h3>
-              <p className="text-muted-foreground">Access requests will appear here when submitted</p>
+              <h3 className="text-xl font-bold text-gray-800 mb-3">No requests yet</h3>
+              <p className="text-gray-600 mb-6">Access requests will appear here when submitted</p>
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="space-y-3">
               {mockRequests.slice(0, 5).map((request) => (
-                <div key={request.id} className="px-6 py-4 hover:bg-accent transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      {getStatusIcon(request.status)}
-                      <div>
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-sm font-medium text-foreground">{request.user}</span>
-                          <span className="text-gray-400">→</span>
-                          <span className="text-sm text-muted-foreground">{request.application}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Requested on {new Date(request.requestDate).toLocaleDateString()}</p>
-                        {canApprove(request) && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
-                            Requires your approval
-                          </span>
-                        )}
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
+                >
+                  <div className="flex items-center space-x-4">
+                    <img 
+                      src={request.avatar} 
+                      alt={request.user}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                    />
+                    <div>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="font-medium text-gray-900">{request.user}</span>
+                        <span className="text-gray-400">→</span>
+                        <span className="text-gray-600">{request.application}</span>
                       </div>
+                      <p className="text-sm text-gray-500">{request.requestDate}</p>
+                      {canApprove(request) && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
+                          Requires your approval
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-3">
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         request.status === 'approved' ? 'bg-green-100 text-green-800' :
                         request.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' :
@@ -276,6 +194,7 @@ const ManagerDashboard = ({ user }: ManagerDashboardProps) => {
                         {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                       </span>
                     </div>
+                    <ArrowRight className="h-4 w-4 text-gray-400" />
                   </div>
                 </div>
               ))}

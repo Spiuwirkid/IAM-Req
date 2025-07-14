@@ -1,76 +1,93 @@
 
-import { ArrowLeft, Clock, CheckCircle, XCircle, Eye, Calendar, User, FileText, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Clock, CheckCircle, XCircle, ChevronRight, Calendar, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { requestService, type RequestWithApprovals } from '../../services/requestService';
 
-interface StaffRequestsProps {
-  onBack: () => void;
-  user: any;
-}
-
-const StaffRequests = ({ onBack, user }: StaffRequestsProps) => {
+const StaffRequests = () => {
+  const { user } = useOutletContext<{ user: any }>();
+  const navigate = useNavigate();
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [realRequests, setRealRequests] = useState<RequestWithApprovals[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [deletingRequest, setDeletingRequest] = useState<string | null>(null);
 
-  // Mock data dengan status yang lebih detail
-  const mockRequests = [
-    {
-      id: 1,
-      application: 'Salesforce CRM',
-      status: 'approved',
-      requestDate: '2024-01-15',
-      approvedDate: '2024-01-16',
-      reason: 'Need access for customer data management and maintaining client relationships',
-      approvers: [
-        { name: 'Manager A', status: 'approved', date: '2024-01-16', comment: 'Approved for customer management role' },
-        { name: 'Manager B', status: 'approved', date: '2024-01-16', comment: 'Access granted' }
-      ]
-    },
-    {
-      id: 2,
-      application: 'Jira Project Management',
-      status: 'waiting',
-      requestDate: '2024-01-18',
-      reason: 'Required for project tracking and bug management for upcoming product release',
-      approvers: [
-        { name: 'Manager A', status: 'approved', date: '2024-01-18', comment: 'Approved for project management tasks' },
-        { name: 'Manager B', status: 'pending', date: null, comment: null }
-      ]
-    },
-    {
-      id: 3,
-      application: 'AWS Console',
-      status: 'rejected',
-      requestDate: '2024-01-10',
-      rejectedDate: '2024-01-12',
-      reason: 'Need access for cloud infrastructure management and deployment tasks',
-      rejectionReason: 'Insufficient business justification - access level too high for current role',
-      approvers: [
-        { name: 'Manager A', status: 'rejected', date: '2024-01-12', comment: 'Requires additional security training first' }
-      ]
-    },
-    {
-      id: 4,
-      application: 'Tableau Analytics',
-      status: 'waiting',
-      requestDate: '2024-01-20',
-      reason: 'Need access for data visualization and business intelligence reporting',
-      approvers: [
-        { name: 'Manager A', status: 'pending', date: null, comment: null }
-      ]
+  // Load real requests from database
+  useEffect(() => {
+    const loadRequests = async () => {
+      try {
+        setLoadingRequests(true);
+        // Mock user ID - in real app this would come from auth
+        const requests = await requestService.getUserRequests('staff_user_1');
+        setRealRequests(requests);
+      } catch (error) {
+        console.error('Error loading requests:', error);
+        setRealRequests([]); // Set empty array on error
+      } finally {
+        setLoadingRequests(false);
+      }
+    };
+
+    loadRequests();
+  }, []);
+
+  // Handle delete request
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to delete this request? This action cannot be undone.')) {
+      return;
     }
-  ];
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'waiting':
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case 'rejected':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      default:
-        return <Clock className="h-5 w-5 text-gray-500" />;
+    
+    try {
+      setDeletingRequest(requestId);
+      await requestService.deleteRequest(requestId);
+      
+      // Refresh the requests list
+      const requests = await requestService.getUserRequests('staff_user_1');
+      setRealRequests(requests);
+    } catch (error) {
+      console.error('Error deleting request:', error);
+      alert('Failed to delete request. Please try again.');
+    } finally {
+      setDeletingRequest(null);
     }
   };
+
+  // Helper function to determine approval status based on level and current level
+  const getApprovalStatus = (approval: any, currentLevel: number) => {
+    if (approval.status === 'approved') return 'approved';
+    if (approval.status === 'rejected') return 'rejected';
+    
+    // For pending approvals, check if it's current level or waiting
+    if (approval.level === currentLevel) {
+      return 'need approval';
+    } else if (approval.level > currentLevel) {
+      return 'still waiting';
+    } else {
+      return 'pending'; // This shouldn't happen in normal flow
+    }
+  };
+
+  // Transform real requests for display
+  const displayRequests = realRequests.map(req => ({
+    id: req.id,
+    application: req.application_name,
+    logo: req.application_logo,
+    status: req.status === 'pending' ? 'waiting' : req.status,
+    actualStatus: req.status, // Keep the actual status for delete logic
+    requestDate: new Date(req.created_at).toISOString().split('T')[0],
+    approvedDate: req.status === 'approved' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
+    rejectedDate: req.status === 'rejected' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
+    reason: req.business_justification,
+    rejectionReason: req.rejection_reason || null,
+    approvers: req.approvals
+      .sort((a, b) => a.level - b.level) // Sort by level
+      .map(approval => ({
+        name: approval.manager_name,
+        status: getApprovalStatus(approval, req.current_level),
+        date: approval.approved_at ? new Date(approval.approved_at).toISOString().split('T')[0] : null,
+        comment: approval.comments
+      }))
+  }));
 
   const getStatusBadge = (status: string) => {
     const baseClasses = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium";
@@ -96,248 +113,326 @@ const StaffRequests = ({ onBack, user }: StaffRequestsProps) => {
     return { percentage: (approved / total) * 100, color: 'bg-blue-500', status: 'in-progress' };
   };
 
+  if (loadingRequests) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   if (selectedRequest) {
     const progress = getApprovalProgress(selectedRequest.approvers);
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="p-3 hover:bg-blue-50 rounded-xl transition-colors border border-blue-100"
-              >
-                <ArrowLeft className="h-5 w-5 text-blue-600" />
-              </button>
-              <div>
-                <div className="flex items-center space-x-3 mb-2">
-                  {getStatusIcon(selectedRequest.status)}
-                  <h1 className="text-2xl font-bold text-gray-900">{selectedRequest.application}</h1>
-                  <span className={getStatusBadge(selectedRequest.status)}>
-                    {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
-                  </span>
-                </div>
-                <p className="text-gray-600">Request Details</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Request Info */}
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Information</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Reason for Request</label>
-                <p className="text-gray-900 mt-1">{selectedRequest.reason}</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Request Date</label>
-                  <p className="text-gray-900 mt-1">{new Date(selectedRequest.requestDate).toLocaleDateString('id-ID', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</p>
-                </div>
-                {selectedRequest.approvedDate && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Approved Date</label>
-                    <p className="text-green-600 mt-1">{new Date(selectedRequest.approvedDate).toLocaleDateString('id-ID', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}</p>
-                  </div>
-                )}
-                {selectedRequest.rejectedDate && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Rejected Date</label>
-                    <p className="text-red-600 mt-1">{new Date(selectedRequest.rejectedDate).toLocaleDateString('id-ID', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Approval Progress */}
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Approval Progress</h3>
-              <span className="text-sm text-gray-500">
-                {selectedRequest.approvers.filter(a => a.status === 'approved').length} of {selectedRequest.approvers.length} managers approved
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
-              <div 
-                className={`h-3 rounded-full transition-all duration-500 ${progress.color}`}
-                style={{ width: `${progress.percentage}%` }}
-              ></div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {selectedRequest.approvers.map((approver, index) => (
-                <div key={index} className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
-                        approver.status === 'approved' ? 'bg-green-100 text-green-700' :
-                        approver.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {approver.status === 'approved' ? '✓' : 
-                         approver.status === 'rejected' ? '✗' : '?'}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setSelectedRequest(null)}
+                  className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="h-5 w-5 text-gray-600" />
+                </button>
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-white rounded-xl border-2 border-gray-100 flex items-center justify-center p-3 shadow-sm">
+                    {selectedRequest.logo ? (
+                      <img 
+                        src={selectedRequest.logo}
+                        alt={selectedRequest.application}
+                        className="w-10 h-10 object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <span className="text-gray-500 text-sm font-medium">
+                          {selectedRequest.application.slice(0, 2).toUpperCase()}
+                        </span>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{approver.name}</p>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          approver.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          approver.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {approver.status.charAt(0).toUpperCase() + approver.status.slice(1)}
+                    )}
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg hidden"></div>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">{selectedRequest.application}</h1>
+                    <div className="flex items-center space-x-3">
+                      <span className={getStatusBadge(selectedRequest.status)}>
+                        {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        Requested on {selectedRequest.requestDate}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Delete Button in Header */}
+              {selectedRequest.actualStatus === 'pending' && (
+                <button
+                  onClick={() => handleDeleteRequest(selectedRequest.id)}
+                  disabled={deletingRequest === selectedRequest.id}
+                  className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {deletingRequest === selectedRequest.id ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete Request
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Request Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Request Information */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 text-blue-600 mr-2" />
+                  Request Information
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Business Justification</label>
+                    <div className="mt-1 p-3 bg-gray-50 rounded-lg border">
+                      <p className="text-gray-900">{selectedRequest.reason}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Request Date</label>
+                      <p className="text-gray-900 mt-1 font-medium">{selectedRequest.requestDate}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Status</label>
+                      <div className="mt-1">
+                        <span className={getStatusBadge(selectedRequest.status)}>
+                          {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
-                  {approver.comment && (
-                    <p className="text-sm text-gray-600 mb-2 bg-white p-3 rounded-lg">{approver.comment}</p>
+                  {selectedRequest.approvedDate && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Approved Date</label>
+                      <p className="text-green-600 mt-1 font-medium">{selectedRequest.approvedDate}</p>
+                    </div>
                   )}
-                  
-                  {approver.date && (
-                    <p className="text-xs text-gray-500">
-                      {approver.status} on {new Date(approver.date).toLocaleDateString('id-ID', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </p>
+                  {selectedRequest.rejectedDate && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Rejected Date</label>
+                      <p className="text-red-600 mt-1 font-medium">{selectedRequest.rejectedDate}</p>
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Rejection Reason */}
-          {selectedRequest.status === 'rejected' && selectedRequest.rejectionReason && (
-            <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-red-800 mb-2">Rejection Reason</h4>
-                <p className="text-sm text-red-700">{selectedRequest.rejectionReason}</p>
               </div>
             </div>
-          )}
+
+            {/* Rejection Reason */}
+            {selectedRequest.status === 'rejected' && selectedRequest.rejectionReason && (
+              <div className="bg-white rounded-xl shadow-sm border border-red-200">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-red-800 mb-4 flex items-center">
+                    <XCircle className="h-5 w-5 text-red-600 mr-2" />
+                    Rejection Reason
+                  </h3>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-700">{selectedRequest.rejectionReason}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Approval Status */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <CheckCircle className="h-5 w-5 text-blue-600 mr-2" />
+                    Approval Progress
+                  </h3>
+                  <span className="text-sm text-gray-600 font-medium">
+                    {selectedRequest.approvers.filter(a => a.status === 'approved').length} of {selectedRequest.approvers.length}
+                  </span>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="mb-6">
+                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Progress</span>
+                    <span>{Math.round(progress.percentage)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div 
+                      className={`h-3 rounded-full transition-all duration-500 ${progress.color}`}
+                      style={{ width: `${progress.percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {/* Approval Steps */}
+                <div className="space-y-3">
+                  {selectedRequest.approvers.map((approver, index) => (
+                    <div key={index} className="relative">
+                      <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
+                          approver.status === 'approved' ? 'bg-green-500' :
+                          approver.status === 'rejected' ? 'bg-red-500' :
+                          approver.status === 'need approval' ? 'bg-blue-500' :
+                          'bg-gray-400'
+                        }`}>
+                          {approver.status === 'approved' ? '✓' : 
+                           approver.status === 'rejected' ? '✗' : 
+                           approver.status === 'need approval' ? '⏳' : index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{approver.name}</p>
+                          <p className={`text-sm font-medium ${
+                            approver.status === 'approved' ? 'text-green-600' :
+                            approver.status === 'rejected' ? 'text-red-600' :
+                            approver.status === 'need approval' ? 'text-blue-600' :
+                            'text-gray-500'
+                          }`}>
+                            {approver.status === 'need approval' ? 'Waiting for approval' :
+                             approver.status === 'still waiting' ? 'Still waiting' :
+                             approver.status.charAt(0).toUpperCase() + approver.status.slice(1)}
+                          </p>
+                        </div>
+                        {approver.date && (
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500">{approver.date}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="space-y-6">
         {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
+      <div className="bg-white rounded-xl border border-blue-100 p-6">
           <div className="flex items-center space-x-4">
             <button
-              onClick={onBack}
-              className="p-3 hover:bg-blue-50 rounded-xl transition-colors border border-blue-100"
+            onClick={() => navigate('/staff')}
+            className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-blue-600" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Access Requests</h1>
-              <p className="text-gray-600 mt-1">Click on any application to view detailed status</p>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">My Requests</h1>
+            <p className="text-gray-600">View and track your access requests</p>
           </div>
         </div>
+              </div>
 
-        {/* Request Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
-                <FileText className="h-7 w-7 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                <p className="text-3xl font-bold text-gray-900">{mockRequests.length}</p>
-              </div>
-            </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-blue-100 p-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-gray-900">{displayRequests.length}</p>
+            <p className="text-sm text-gray-600">Total</p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-green-50 rounded-xl flex items-center justify-center">
-                <CheckCircle className="h-7 w-7 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-3xl font-bold text-green-600">
-                  {mockRequests.filter(r => r.status === 'approved').length}
+        <div className="bg-white rounded-xl border border-blue-100 p-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-green-600">
+                  {displayRequests.filter(r => r.status === 'approved').length}
                 </p>
-              </div>
-            </div>
+            <p className="text-sm text-gray-600">Approved</p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-yellow-50 rounded-xl flex items-center justify-center">
-                <Clock className="h-7 w-7 text-yellow-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-3xl font-bold text-yellow-600">
-                  {mockRequests.filter(r => r.status === 'waiting').length}
+        <div className="bg-white rounded-xl border border-blue-100 p-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-yellow-600">
+                  {displayRequests.filter(r => r.status === 'waiting').length}
                 </p>
-              </div>
-            </div>
+            <p className="text-sm text-gray-600">Pending</p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-red-50 rounded-xl flex items-center justify-center">
-                <XCircle className="h-7 w-7 text-red-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-3xl font-bold text-red-600">
-                  {mockRequests.filter(r => r.status === 'rejected').length}
+        <div className="bg-white rounded-xl border border-blue-100 p-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-red-600">
+                  {displayRequests.filter(r => r.status === 'rejected').length}
                 </p>
-              </div>
+            <p className="text-sm text-gray-600">Rejected</p>
             </div>
           </div>
         </div>
 
         {/* Requests List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-blue-100">
-          <div className="px-6 py-4 border-b border-blue-100">
-            <h2 className="text-lg font-semibold text-gray-900">My Applications</h2>
+      <div className="bg-white rounded-xl border border-blue-100">
+        <div className="p-6 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Request History</h2>
           </div>
-          <div className="divide-y divide-blue-50">
-            {mockRequests.map((request) => (
+        
+        {displayRequests.length === 0 ? (
+          <div className="p-12 text-center">
+            <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-800 mb-2">No requests yet</h3>
+            <p className="text-gray-600 mb-6">Start by requesting access to applications you need</p>
+            <button
+              onClick={() => navigate('/staff/catalog')}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Browse Applications
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {displayRequests.map((request) => (
               <div 
                 key={request.id} 
-                className="px-6 py-4 hover:bg-blue-25 cursor-pointer transition-colors"
+              className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
                 onClick={() => setSelectedRequest(request)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    {getStatusIcon(request.status)}
+                  <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 flex items-center justify-center p-2">
+                    {request.logo ? (
+                      <img 
+                        src={request.logo}
+                        alt={request.application}
+                        className="w-8 h-8 object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
+                        <span className="text-gray-500 text-xs font-medium">
+                          {request.application.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="w-8 h-8 bg-gray-200 rounded hidden"></div>
+                  </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{request.application}</h3>
-                      <p className="text-sm text-gray-500">
-                        Requested on {new Date(request.requestDate).toLocaleDateString('id-ID', { 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </p>
+                    <h3 className="font-semibold text-gray-900">{request.application}</h3>
+                    <p className="text-sm text-gray-600">Requested on {request.requestDate}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -350,7 +445,7 @@ const StaffRequests = ({ onBack, user }: StaffRequestsProps) => {
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

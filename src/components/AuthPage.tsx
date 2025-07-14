@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Shield, User, UserCheck, Settings } from 'lucide-react';
+import { User, UserCheck, Settings } from 'lucide-react';
 
 interface AuthPageProps {
   onLogin: (email: string, password: string, role: string) => void;
@@ -15,29 +15,50 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
       id: 'staff',
       name: 'Staff',
       description: 'Request access to applications',
-      icon: User,
-      email: 'staff@iam.com'
+      email: 'staff@company.com',
+      color: 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-800',
+      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
     },
     {
       id: 'manager',
       name: 'Manager',
       description: 'Approve access requests',
-      icon: UserCheck,
-      email: 'manager@iam.com'
+      email: 'manager@company.com',
+      color: 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-800',
+      image: 'https://plus.unsplash.com/premium_photo-1661782041556-81e9a21ece9e?q=80&w=150&h=150&fit=crop&crop=face&auto=format&ixlib=rb-4.1.0'
     },
     {
       id: 'it_admin',
-      name: 'IT Admin',
-      description: 'Manage applications',
-      icon: Settings,
-      email: 'admin@iam.com'
+      name: 'IT Administrator',
+      description: 'Manage system & applications',
+      email: 'admin@company.com',
+      color: 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-800',
+      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
     }
   ];
 
   const managerOptions = [
-    { id: 'manager_a', name: 'Manager A', email: 'manager.a@iam.com' },
-    { id: 'manager_b', name: 'Manager B', email: 'manager.b@iam.com' },
-    { id: 'manager_c', name: 'Manager C', email: 'manager.c@iam.com' }
+    { 
+      id: 'manager_a', 
+      name: 'Manager A', 
+      email: 'manager.a@company.com', 
+      department: 'Operations',
+      image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
+    },
+    { 
+      id: 'manager_b', 
+      name: 'Manager B', 
+      email: 'manager.b@company.com', 
+      department: 'Development',
+      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
+    },
+    { 
+      id: 'manager_c', 
+      name: 'Manager C', 
+      email: 'manager.c@company.com', 
+      department: 'Security',
+      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
+    }
   ];
 
   const handleRoleSelect = (role: any) => {
@@ -45,7 +66,6 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
       setSelectedRole('manager');
       setShowManagerOptions(true);
     } else {
-      // Direct login without password for other roles
       onLogin(role.email, 'demo', role.id);
     }
   };
@@ -60,86 +80,95 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {!showManagerOptions ? (
-          <div className="bg-card rounded-xl shadow-sm border p-8 space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto">
-                <Shield className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">IAM System</h1>
-                <p className="text-muted-foreground">Select your role to continue</p>
-              </div>
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            
+            {/* Simple Header */}
+            <div className="text-center mb-8">
+              <img 
+                src="/IAM.png" 
+                alt="IAM Logo" 
+                className="w-24 h-24 mx-auto mb-4 object-contain"
+              />
+              <h1 className="text-2xl font-bold text-gray-800 mb-2">
+                AccessHub
+              </h1>
+              <p className="text-gray-600">Choose your role to continue</p>
             </div>
 
-            {/* Role Selection */}
+            {/* Simple Role Selection with Images */}
             <div className="space-y-3">
-              {roles.map((role) => {
-                const IconComponent = role.icon;
-                return (
-                  <button
-                    key={role.id}
-                    onClick={() => handleRoleSelect(role)}
-                    className="w-full p-4 text-left border border-border rounded-lg hover:bg-accent hover:border-primary transition-all duration-200"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
-                        <IconComponent className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-foreground">{role.name}</h3>
-                        <p className="text-sm text-muted-foreground">{role.description}</p>
-                      </div>
+              {roles.map((role) => (
+                <button
+                  key={role.id}
+                  onClick={() => handleRoleSelect(role)}
+                  className={`w-full p-4 text-left border-2 rounded-lg transition-colors ${role.color}`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <img 
+                      src={role.image} 
+                      alt={role.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <h3 className="font-semibold">{role.name}</h3>
+                      <p className="text-sm text-gray-500">{role.description}</p>
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
+                </button>
+              ))}
             </div>
+            
           </div>
         ) : (
-          <div className="bg-card rounded-xl shadow-sm border p-8 space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto">
-                <UserCheck className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Select Manager</h1>
-                <p className="text-muted-foreground">Choose your manager role</p>
-              </div>
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            
+            {/* Manager Selection Header */}
+            <div className="text-center mb-8">
+              <img 
+                src="/IAM.png" 
+                alt="IAM Logo" 
+                className="w-16 h-16 mx-auto mb-4 object-contain"
+              />
+              <h1 className="text-2xl font-bold text-gray-800 mb-2">
+                Select Manager Level
+              </h1>
+              <p className="text-gray-600">Choose your management level</p>
             </div>
 
-            {/* Manager Options */}
-            <div className="space-y-3">
+            {/* Simple Manager Options with Images */}
+            <div className="space-y-3 mb-6">
               {managerOptions.map((manager) => (
                 <button
                   key={manager.id}
                   onClick={() => handleManagerSelect(manager)}
-                  className="w-full p-4 text-left border border-border rounded-lg hover:bg-accent hover:border-primary transition-all duration-200"
+                  className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors bg-white text-gray-800"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
-                      <UserCheck className="h-5 w-5 text-primary" />
-                    </div>
+                  <div className="flex items-center space-x-3">
+                    <img 
+                      src={manager.image} 
+                      alt={manager.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
                     <div>
-                      <h3 className="font-medium text-foreground">{manager.name}</h3>
-                      <p className="text-sm text-muted-foreground">Manager approval role</p>
+                      <h3 className="font-semibold">{manager.name}</h3>
+                      <p className="text-sm text-gray-500">{manager.department} Department</p>
                     </div>
                   </div>
                 </button>
               ))}
             </div>
 
-            {/* Back Button */}
+            {/* Simple Back Button */}
             <button
               onClick={handleBack}
-              className="w-full p-3 text-center text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full p-3 text-center text-blue-600 hover:text-blue-800 transition-colors border border-gray-200 rounded-lg hover:bg-gray-50"
             >
               ← Back to role selection
             </button>
+            
           </div>
         )}
       </div>

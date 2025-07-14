@@ -49,6 +49,7 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
   return (
     <div className="space-y-6">
       {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
       <div className="flex items-center space-x-4">
         <button
           onClick={onBack}
@@ -59,6 +60,7 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Request Details</h1>
           <p className="text-gray-600">Access request for {request.application}</p>
+          </div>
         </div>
       </div>
 
