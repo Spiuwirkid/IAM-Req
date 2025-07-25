@@ -1,24 +1,28 @@
 
-import { ArrowLeft, Clock, CheckCircle, XCircle, ChevronRight, Calendar, Trash2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { ArrowLeft, Clock, CheckCircle, XCircle, ChevronRight, Calendar, Trash2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { requestService, type RequestWithApprovals } from '../../services/requestService';
+import { useCustomAlert, showSuccessAlert, showErrorAlert } from '../ui/custom-alert';
 
 const StaffRequests = () => {
   const { user } = useOutletContext<{ user: any }>();
   const navigate = useNavigate();
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<RequestWithApprovals | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingRequest, setDeletingRequest] = useState<string | null>(null);
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [realRequests, setRealRequests] = useState<RequestWithApprovals[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
-  const [deletingRequest, setDeletingRequest] = useState<string | null>(null);
 
   // Load real requests from database
   useEffect(() => {
     const loadRequests = async () => {
       try {
         setLoadingRequests(true);
-        // Mock user ID - in real app this would come from auth
-        const requests = await requestService.getUserRequests('staff_user_1');
+        console.log('🔍 Debug: Loading requests from database...');
+        const requests = await requestService.getUserRequests();
+        console.log('🔍 Debug: Loaded requests:', requests);
         setRealRequests(requests);
       } catch (error) {
         console.error('Error loading requests:', error);
@@ -32,62 +36,96 @@ const StaffRequests = () => {
   }, []);
 
   // Handle delete request
-  const handleDeleteRequest = async (requestId: string) => {
-    if (!confirm('Are you sure you want to delete this request? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteRequest = useCallback(async (requestId: string, appName: string) => {
+    console.log('🚀 Debug: handleDeleteRequest called with:', { requestId, appName });
     
     try {
       setDeletingRequest(requestId);
-      await requestService.deleteRequest(requestId);
+      console.log('🚀 Starting delete request for:', requestId);
       
-      // Refresh the requests list
-      const requests = await requestService.getUserRequests('staff_user_1');
+      await requestService.deleteRequest(requestId);
+      console.log('🎉 Delete successful, refreshing list with force refresh...');
+      
+      // Force refresh to bypass Supabase cache
+      const requests = await requestService.getUserRequests(true);
       setRealRequests(requests);
+      
+      console.log('✅ Request deleted successfully!');
     } catch (error) {
-      console.error('Error deleting request:', error);
-      alert('Failed to delete request. Please try again.');
+      console.error('💥 Error deleting request:', error);
+      alert(`Failed to delete request: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setDeletingRequest(null);
     }
-  };
+  }, []);
 
   // Helper function to determine approval status based on level and current level
-  const getApprovalStatus = (approval: any, currentLevel: number) => {
+  const getApprovalStatus = (approval: any, currentLevel: number, requestStatus: string) => {
+    // If request is already approved or rejected, show final status
+    if (requestStatus === 'approved' || requestStatus === 'rejected') {
+      return approval.status;
+    }
+    
     if (approval.status === 'approved') return 'approved';
     if (approval.status === 'rejected') return 'rejected';
     
     // For pending approvals, check if it's current level or waiting
     if (approval.level === currentLevel) {
-      return 'need approval';
+      return 'need approval'; // This manager needs to act now
     } else if (approval.level > currentLevel) {
-      return 'still waiting';
+      return 'still waiting'; // Future approval levels
     } else {
-      return 'pending'; // This shouldn't happen in normal flow
+      return 'pending'; // Should not happen in normal flow
     }
   };
 
   // Transform real requests for display
-  const displayRequests = realRequests.map(req => ({
-    id: req.id,
-    application: req.application_name,
-    logo: req.application_logo,
-    status: req.status === 'pending' ? 'waiting' : req.status,
-    actualStatus: req.status, // Keep the actual status for delete logic
-    requestDate: new Date(req.created_at).toISOString().split('T')[0],
-    approvedDate: req.status === 'approved' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
-    rejectedDate: req.status === 'rejected' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
-    reason: req.business_justification,
-    rejectionReason: req.rejection_reason || null,
-    approvers: req.approvals
-      .sort((a, b) => a.level - b.level) // Sort by level
-      .map(approval => ({
-        name: approval.manager_name,
-        status: getApprovalStatus(approval, req.current_level),
-        date: approval.approved_at ? new Date(approval.approved_at).toISOString().split('T')[0] : null,
-        comment: approval.comments
-      }))
-  }));
+  const displayRequests = realRequests.map(req => {
+    console.log('🔍 Debug: Processing request:', { 
+      id: req.id, 
+      status: req.status, 
+      application_name: req.application_name 
+    });
+    
+    return {
+      id: req.id,
+      application: req.application_name,
+      logo: req.application_logo,
+      status: req.status === 'pending' ? 'waiting' : req.status,
+      actualStatus: req.status, // Keep the actual status for delete logic
+      requestDate: new Date(req.created_at).toISOString().split('T')[0],
+      approvedDate: req.status === 'approved' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
+      rejectedDate: req.status === 'rejected' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
+      reason: req.business_justification,
+      rejectionReason: req.rejection_reason || null,
+      approvers: req.approvals
+        .sort((a, b) => a.level - b.level) // Sort by level
+        .map(approval => {
+          // If request is rejected, check if this level was reached
+          if (req.status === 'rejected') {
+            // Find the level where rejection happened
+            const rejectedLevel = req.approvals.find(a => a.status === 'rejected')?.level;
+            
+            // If this approval level is higher than the rejection level, it was never processed
+            if (rejectedLevel && approval.level > rejectedLevel) {
+              return {
+                name: approval.manager_name,
+                status: 'not processed',
+                date: null,
+                comment: null
+              };
+            }
+          }
+          
+          return {
+            name: approval.manager_name,
+            status: getApprovalStatus(approval, req.current_level, req.status),
+            date: approval.approved_at ? new Date(approval.approved_at).toISOString().split('T')[0] : null,
+            comment: approval.comments
+          };
+        })
+    };
+  });
 
   const getStatusBadge = (status: string) => {
     const baseClasses = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium";
@@ -107,10 +145,16 @@ const StaffRequests = () => {
     const total = approvers.length;
     const approved = approvers.filter(a => a.status === 'approved').length;
     const rejected = approvers.filter(a => a.status === 'rejected').length;
+    const notProcessed = approvers.filter(a => a.status === 'not processed').length;
     
     if (rejected > 0) return { percentage: 100, color: 'bg-red-500', status: 'rejected' };
     if (approved === total) return { percentage: 100, color: 'bg-green-500', status: 'approved' };
-    return { percentage: (approved / total) * 100, color: 'bg-blue-500', status: 'in-progress' };
+    
+    // Calculate progress excluding not processed levels
+    const processedLevels = total - notProcessed;
+    const progressPercentage = processedLevels > 0 ? (approved / processedLevels) * 100 : 0;
+    
+    return { percentage: progressPercentage, color: 'bg-blue-500', status: 'in-progress' };
   };
 
   if (loadingRequests) {
@@ -126,17 +170,17 @@ const StaffRequests = () => {
     
     return (
       <div className="space-y-6">
-        {/* Header */}
+          {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setSelectedRequest(null)}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setSelectedRequest(null)}
                   className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
+              >
                   <ArrowLeft className="h-5 w-5 text-gray-600" />
-                </button>
+              </button>
                 <div className="flex items-center space-x-4">
                   <div className="w-16 h-16 bg-white rounded-xl border-2 border-gray-100 flex items-center justify-center p-3 shadow-sm">
                     {selectedRequest.logo ? (
@@ -159,12 +203,12 @@ const StaffRequests = () => {
                     )}
                     <div className="w-10 h-10 bg-gray-200 rounded-lg hidden"></div>
                   </div>
-                  <div>
+              <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">{selectedRequest.application}</h1>
                     <div className="flex items-center space-x-3">
-                      <span className={getStatusBadge(selectedRequest.status)}>
-                        {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
-                      </span>
+                  <span className={getStatusBadge(selectedRequest.status)}>
+                    {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
+                  </span>
                       <span className="text-sm text-gray-500">
                         Requested on {selectedRequest.requestDate}
                       </span>
@@ -174,11 +218,16 @@ const StaffRequests = () => {
               </div>
               
               {/* Delete Button in Header */}
-              {selectedRequest.actualStatus === 'pending' && (
+              {selectedRequest.actualStatus !== 'pending' && (
                 <button
-                  onClick={() => handleDeleteRequest(selectedRequest.id)}
+                  onClick={() => {
+                    console.log('🔍 Debug: Delete button clicked for:', selectedRequest);
+                    if (confirm(`Are you sure you want to delete your request for ${selectedRequest.application}? This action cannot be undone.`)) {
+                      handleDeleteRequest(selectedRequest.id, selectedRequest.application);
+                    }
+                  }}
                   disabled={deletingRequest === selectedRequest.id}
-                  className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
                   {deletingRequest === selectedRequest.id ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -188,9 +237,9 @@ const StaffRequests = () => {
                   Delete Request
                 </button>
               )}
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -203,8 +252,8 @@ const StaffRequests = () => {
                   <Calendar className="h-5 w-5 text-blue-600 mr-2" />
                   Request Information
                 </h3>
-                <div className="space-y-4">
-                  <div>
+            <div className="space-y-4">
+              <div>
                     <label className="text-sm font-medium text-gray-600">Business Justification</label>
                     <div className="mt-1 p-3 bg-gray-50 rounded-lg border">
                       <p className="text-gray-900">{selectedRequest.reason}</p>
@@ -214,8 +263,8 @@ const StaffRequests = () => {
                     <div>
                       <label className="text-sm font-medium text-gray-600">Request Date</label>
                       <p className="text-gray-900 mt-1 font-medium">{selectedRequest.requestDate}</p>
-                    </div>
-                    <div>
+              </div>
+                <div>
                       <label className="text-sm font-medium text-gray-600">Status</label>
                       <div className="mt-1">
                         <span className={getStatusBadge(selectedRequest.status)}>
@@ -223,22 +272,22 @@ const StaffRequests = () => {
                         </span>
                       </div>
                     </div>
-                  </div>
-                  {selectedRequest.approvedDate && (
-                    <div>
+                </div>
+                {selectedRequest.approvedDate && (
+                  <div>
                       <label className="text-sm font-medium text-gray-600">Approved Date</label>
                       <p className="text-green-600 mt-1 font-medium">{selectedRequest.approvedDate}</p>
-                    </div>
-                  )}
-                  {selectedRequest.rejectedDate && (
-                    <div>
+                  </div>
+                )}
+                {selectedRequest.rejectedDate && (
+                  <div>
                       <label className="text-sm font-medium text-gray-600">Rejected Date</label>
                       <p className="text-red-600 mt-1 font-medium">{selectedRequest.rejectedDate}</p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
+          </div>
 
             {/* Rejection Reason */}
             {selectedRequest.status === 'rejected' && selectedRequest.rejectionReason && (
@@ -260,15 +309,25 @@ const StaffRequests = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                     <CheckCircle className="h-5 w-5 text-blue-600 mr-2" />
                     Approval Progress
                   </h3>
                   <span className="text-sm text-gray-600 font-medium">
-                    {selectedRequest.approvers.filter(a => a.status === 'approved').length} of {selectedRequest.approvers.length}
-                  </span>
-                </div>
+                    {(() => {
+                      const approved = selectedRequest.approvers.filter(a => a.status === 'approved').length;
+                      const notProcessed = selectedRequest.approvers.filter(a => a.status === 'not processed').length;
+                      const total = selectedRequest.approvers.length;
+                      const processed = total - notProcessed;
+                      
+                      if (notProcessed > 0) {
+                        return `${approved} of ${processed} (${notProcessed} not processed)`;
+                      }
+                      return `${approved} of ${total}`;
+                    })()}
+              </span>
+            </div>
                 
                 {/* Progress Bar */}
                 <div className="mb-6">
@@ -277,38 +336,43 @@ const StaffRequests = () => {
                     <span>{Math.round(progress.percentage)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className={`h-3 rounded-full transition-all duration-500 ${progress.color}`}
-                      style={{ width: `${progress.percentage}%` }}
-                    ></div>
+              <div 
+                className={`h-3 rounded-full transition-all duration-500 ${progress.color}`}
+                style={{ width: `${progress.percentage}%` }}
+              ></div>
                   </div>
-                </div>
-                
+            </div>
+            
                 {/* Approval Steps */}
                 <div className="space-y-3">
-                  {selectedRequest.approvers.map((approver, index) => (
+              {selectedRequest.approvers.map((approver, index) => (
                     <div key={index} className="relative">
                       <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
                           approver.status === 'approved' ? 'bg-green-500' :
                           approver.status === 'rejected' ? 'bg-red-500' :
                           approver.status === 'need approval' ? 'bg-blue-500' :
+                          approver.status === 'not processed' ? 'bg-gray-300' :
                           'bg-gray-400'
-                        }`}>
-                          {approver.status === 'approved' ? '✓' : 
+                      }`}>
+                        {approver.status === 'approved' ? '✓' : 
                            approver.status === 'rejected' ? '✗' : 
-                           approver.status === 'need approval' ? '⏳' : index + 1}
-                        </div>
+                           approver.status === 'need approval' ? '⏳' : 
+                           approver.status === 'not processed' ? '—' :
+                           index + 1}
+                      </div>
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{approver.name}</p>
                           <p className={`text-sm font-medium ${
                             approver.status === 'approved' ? 'text-green-600' :
                             approver.status === 'rejected' ? 'text-red-600' :
                             approver.status === 'need approval' ? 'text-blue-600' :
+                            approver.status === 'not processed' ? 'text-gray-400' :
                             'text-gray-500'
-                          }`}>
+                        }`}>
                             {approver.status === 'need approval' ? 'Waiting for approval' :
                              approver.status === 'still waiting' ? 'Still waiting' :
+                             approver.status === 'not processed' ? 'Not Processed' :
                              approver.status.charAt(0).toUpperCase() + approver.status.slice(1)}
                           </p>
                         </div>
@@ -435,18 +499,52 @@ const StaffRequests = () => {
                     <p className="text-sm text-gray-600">Requested on {request.requestDate}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <span className={getStatusBadge(request.status)}>
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </span>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </div>
+                                     <div className="flex items-center space-x-3">
+                     <span className={getStatusBadge(request.status)}>
+                       {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                     </span>
+                     
+                     {/* Delete Button Logic */}
+                     {(request.actualStatus === 'pending' || request.actualStatus === 'approved' || request.actualStatus === 'rejected') && (
+                       <button
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           console.log('🔍 Debug: Delete button clicked for:', request);
+                           
+                           const actionText = request.actualStatus === 'pending' ? 'cancel' : 'delete';
+                           const confirmMessage = request.actualStatus === 'pending' 
+                             ? `Are you sure you want to cancel your request for ${request.application}?`
+                             : `Are you sure you want to delete your request for ${request.application}? This action cannot be undone.`;
+                           
+                           if (confirm(confirmMessage)) {
+                             handleDeleteRequest(request.id, request.application);
+                           }
+                         }}
+                         disabled={deletingRequest === request.id}
+                         className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${
+                           request.actualStatus === 'pending' 
+                             ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                             : 'bg-red-600 text-white hover:bg-red-700'
+                         }`}
+                       >
+                         {deletingRequest === request.id ? (
+                           <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                         ) : (
+                           <Trash2 className="h-3 w-3 mr-1" />
+                         )}
+                         {request.actualStatus === 'pending' ? 'Cancel' : 'Delete'}
+                       </button>
+                     )}
+                     
+                     <ChevronRight className="h-5 w-5 text-gray-400" />
+                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+      
     </div>
   );
 };

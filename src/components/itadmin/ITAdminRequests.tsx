@@ -1,5 +1,7 @@
 
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, CheckCircle, XCircle, Users, Calendar, MessageSquare, FileText, ChevronRight, ChevronDown } from 'lucide-react';
+import { requestService, type RequestWithApprovals } from '../../services/requestService';
 
 interface ITAdminRequestsProps {
   onBack: () => void;
@@ -7,74 +9,38 @@ interface ITAdminRequestsProps {
 }
 
 const ITAdminRequests = ({ onBack, user }: ITAdminRequestsProps) => {
-  // Mock data with profile photos - IT Admin monitoring view
-  const mockRequests = [
-    {
-      id: 1,
-      user: 'John Doe',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      department: 'IT Operations',
-      application: 'GNS3',
-      status: 'waiting',
-      requestDate: '2025-07-10',
-      reason: 'Need access for network simulation and lab environment',
-      manager: 'Manager A'
-    },
-    {
-      id: 2,
-      user: 'Jane Smith',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b050?w=150&h=150&fit=crop&crop=face',
-      department: 'Development',
-      application: 'Visual Studio',
-      status: 'approved',
-      requestDate: '2025-07-08',
-      reason: 'Required for software development and coding projects',
-      manager: 'Manager B'
-    },
-    {
-      id: 3,
-      user: 'Mike Johnson',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      department: 'Infrastructure',
-      application: 'Ubuntu Server',
-      status: 'rejected',
-      requestDate: '2025-06-18',
-      reason: 'Need SSH access for server administration',
-      manager: 'Manager C'
-    },
-    {
-      id: 4,
-      user: 'Sarah Wilson',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-      department: 'Virtualization',
-      application: 'VMware ESXi',
-      status: 'waiting',
-      requestDate: '2025-07-11',
-      reason: 'Need access for virtualization management and hypervisor administration',
-      manager: 'Manager A'
-    },
-    {
-      id: 5,
-      user: 'Alex Brown',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-      department: 'DevOps',
-      application: 'NextCloud',
-      status: 'approved',
-      requestDate: '2025-07-05',
-      reason: 'Need secure file sharing access for team collaboration',
-      manager: 'Manager B'
-    }
-  ];
+  const [requests, setRequests] = useState<RequestWithApprovals[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pendingCount = mockRequests.filter(r => r.status === 'waiting').length;
-  const approvedCount = mockRequests.filter(r => r.status === 'approved').length;
-  const rejectedCount = mockRequests.filter(r => r.status === 'rejected').length;
+  // Load real requests from database
+  useEffect(() => {
+    const loadRequests = async () => {
+      try {
+        setLoading(true);
+        console.log('🔍 Debug: Loading all requests for IT Admin...');
+        const allRequests = await requestService.getAllRequests();
+        console.log('🔍 Debug: Loaded requests:', allRequests);
+        setRequests(allRequests);
+      } catch (error) {
+        console.error('Error loading requests:', error);
+        setRequests([]); // Set empty array on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRequests();
+  }, []);
+
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+  const approvedCount = requests.filter(r => r.status === 'approved').length;
+  const rejectedCount = requests.filter(r => r.status === 'rejected').length;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'waiting':
+      case 'pending':
         return <Clock className="h-5 w-5 text-yellow-500" />;
       case 'rejected':
         return <XCircle className="h-5 w-5 text-red-500" />;
@@ -83,19 +49,36 @@ const ITAdminRequests = ({ onBack, user }: ITAdminRequestsProps) => {
     }
   };
 
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       {/* Header with Floating Background */}
       <div className="px-8 py-8">
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-6">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
-            </button>
-            <div>
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={onBack}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5 text-gray-600" />
+        </button>
+        <div>
               <h1 className="text-2xl font-bold text-gray-900">System Access Monitor</h1>
               <p className="text-gray-600">Monitor all access requests across the organization</p>
             </div>
@@ -148,56 +131,52 @@ const ITAdminRequests = ({ onBack, user }: ITAdminRequestsProps) => {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-800">All Access Requests</h2>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">Total: {mockRequests.length} requests</span>
+              <span className="text-sm text-gray-500">Total: {requests.length} requests</span>
             </div>
           </div>
         </div>
         
         <div className="p-6">
           <div className="space-y-3">
-            {mockRequests.map((request) => (
+          {requests.map((request) => (
               <div 
                 key={request.id} 
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
               >
                 <div className="flex items-center space-x-4">
-                  <img 
-                    src={request.avatar} 
-                    alt={request.user}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                  />
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-lg">
+                    {getUserInitials(request.user_name)}
+                  </div>
                   <div>
                     <div className="flex items-center space-x-2 mb-1">
-                      <span className="font-medium text-gray-900">{request.user}</span>
+                      <span className="font-medium text-gray-900">{request.user_name}</span>
                       <span className="text-gray-400">→</span>
-                      <span className="text-gray-600">{request.application}</span>
+                      <span className="text-gray-600">{request.application_name}</span>
                     </div>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>{request.department}</span>
+                      <span>Level: {request.current_level}/{request.total_levels}</span>
                       <span className="text-gray-400">•</span>
-                      <span>Manager: {request.manager}</span>
-                      <span className="text-gray-400">•</span>
-                      <span>{new Date(request.requestDate).toLocaleDateString()}</span>
+                      <span>{new Date(request.created_at).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{request.reason.substring(0, 80)}...</p>
+                    <p className="text-xs text-gray-500 mt-1">{request.business_justification?.substring(0, 80)}...</p>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-3">
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                    request.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {request.status === 'waiting' ? 'Pending' : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                  </span>
+                  request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                  request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                    {request.status === 'pending' ? 'Pending' : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                </span>
                   <ChevronRight className="h-4 w-4 text-gray-400" />
                 </div>
               </div>
             ))}
           </div>
 
-          {mockRequests.length === 0 && (
+          {requests.length === 0 && (
             <div className="text-center py-12">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <FileText className="h-10 w-10 text-gray-400" />

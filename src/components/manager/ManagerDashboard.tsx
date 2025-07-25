@@ -1,72 +1,122 @@
 
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { 
   Clock, 
   CheckCircle, 
   XCircle, 
   FileText,
   Activity,
-  ArrowRight
+  ArrowRight,
+  User
 } from 'lucide-react';
+import { requestService, type RequestWithApprovals } from '../../services/requestService';
 
 const ManagerDashboard = () => {
   const { user } = useOutletContext<{ user: any }>();
+  const navigate = useNavigate();
+  const [allRequests, setAllRequests] = useState<RequestWithApprovals[]>([]);
+  const [myPendingRequests, setMyPendingRequests] = useState<RequestWithApprovals[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [stats, setStats] = useState({
+    myPending: 0,
+    approved: 0,
+    rejected: 0,
+    total: 0
+  });
 
-  // Mock data - in real app this would come from Supabase
-  const mockRequests = [
-    {
-      id: 1,
-      user: 'John Doe',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      application: 'GNS3',
-      status: 'waiting',
-      requestDate: '2025-07-10',
-      reason: 'Need access for network simulation and lab environment',
-      approvers: [
-        { name: 'Manager A', status: user?.name === 'Manager A' ? 'pending' : 'approved' },
-        { name: 'Manager B', status: user?.name === 'Manager B' ? 'pending' : 'waiting' },
-        { name: 'Manager C', status: user?.name === 'Manager C' ? 'pending' : 'waiting' }
-      ]
-    },
-    {
-      id: 2,
-      user: 'Jane Smith',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b050?w=150&h=150&fit=crop&crop=face',
-      application: 'Visual Studio',
-      status: 'waiting',
-      requestDate: '2025-07-08',
-      reason: 'Required for software development and coding projects',
-      approvers: [
-        { name: 'Manager A', status: user?.name === 'Manager A' ? 'pending' : 'waiting' }
-      ]
-    },
-    {
-      id: 3,
-      user: 'Mike Johnson',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      application: 'Ubuntu Server',
-      status: 'approved',
-      requestDate: '2025-06-18',
-      reason: 'Need SSH access for server administration and maintenance',
-      approvers: [
-        { name: 'Manager A', status: 'approved' },
-        { name: 'Manager B', status: 'approved' }
-      ]
-    }
-  ];
-
-  const stats = {
-    pending: mockRequests.filter(r => r.approvers.some(a => a.name === user?.name && a.status === 'pending')).length,
-    approved: mockRequests.filter(r => r.approvers.some(a => a.name === user?.name && a.status === 'approved')).length,
-    rejected: mockRequests.filter(r => r.approvers.some(a => a.name === user?.name && a.status === 'rejected')).length,
-    total: mockRequests.length
+  // Get manager level from email
+  const getManagerLevel = (email: string) => {
+    if (email === 'manager.a@gmail.com') return 1;
+    if (email === 'manager.b@gmail.com') return 2;
+    if (email === 'manager.c@gmail.com') return 3;
+    return 0;
   };
 
-  const canApprove = (request: any) => {
-    return request.approvers.some(approver => 
-      approver.name === user?.name && approver.status === 'pending'
-    );
+  // Check if request needs this manager's attention
+  const needsMyAttention = (request: RequestWithApprovals) => {
+    const myLevel = getManagerLevel(user?.email || '');
+    if (myLevel === 0) return false;
+    
+    // Only show requests where it's my turn to approve
+    return request.status === 'pending' && request.current_level === myLevel;
+  };
+
+  useEffect(() => {
+    const loadManagerData = async () => {
+      try {
+        setLoadingRequests(true);
+        
+        // Get all requests for manager to review
+        const allRequestsData = await requestService.getAllRequests();
+        setAllRequests(allRequestsData);
+        
+        const myLevel = getManagerLevel(user?.email || '');
+        
+        // Filter requests that need my attention
+        const requestsNeedingMyAction = allRequestsData.filter(needsMyAttention);
+        setMyPendingRequests(requestsNeedingMyAction);
+        
+        // Calculate stats based on my involvement
+        const myApprovedRequests = allRequestsData.filter(request => 
+          request.approvals.some(approval => 
+            approval.level === myLevel && approval.status === 'approved'
+          )
+        );
+        
+        const myRejectedRequests = allRequestsData.filter(request => 
+          request.approvals.some(approval => 
+            approval.level === myLevel && approval.status === 'rejected'
+          )
+        );
+        
+        setStats({
+          myPending: requestsNeedingMyAction.length,
+          approved: myApprovedRequests.length,
+          rejected: myRejectedRequests.length,
+          total: allRequestsData.length
+        });
+        
+      } catch (error) {
+        console.error('Error loading manager dashboard data:', error);
+        setMyPendingRequests([]);
+      } finally {
+        setLoadingRequests(false);
+      }
+    };
+
+    loadManagerData();
+  }, [user]);
+
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'approved':
+        return 'bg-green-100 text-green-800 border border-green-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
+
+  const getManagerLevelName = (level: number) => {
+    switch (level) {
+      case 1: return 'Manager A';
+      case 2: return 'Manager B';
+      case 3: return 'Manager C';
+      default: return 'Manager';
+    }
   };
 
   return (
@@ -76,10 +126,14 @@ const ManagerDashboard = () => {
         <div style={{ color: '#002A58' }}>
           <div className="text-4xl font-bold leading-tight">
             <div>WELCOME</div>
-            <div>TO MANAGER DASHBOARD</div>
+            <div>{getManagerLevelName(getManagerLevel(user?.email || ''))}</div>
           </div>
           <div className="text-lg mt-4 tracking-wider font-medium">
             MANAGE ACCESS REQUESTS AND APPLICATIONS
+          </div>
+          <div className="text-sm mt-2 text-gray-600">
+            Approval Level: {getManagerLevel(user?.email || '')} • 
+            {stats.myPending > 0 ? ` ${stats.myPending} request${stats.myPending > 1 ? 's' : ''} awaiting your approval` : ' No pending requests'}
           </div>
         </div>
       </div>
@@ -89,8 +143,8 @@ const ManagerDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-yellow-600 mb-2 font-medium">Pending</p>
-              <p className="text-3xl font-bold text-yellow-700">{stats.pending}</p>
+              <p className="text-sm text-yellow-600 mb-2 font-medium">Need My Approval</p>
+              <p className="text-3xl font-bold text-yellow-700">{stats.myPending}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center">
               <Clock className="h-6 w-6 text-white" />
@@ -101,7 +155,7 @@ const ManagerDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 mb-2 font-medium">Approved</p>
+              <p className="text-sm text-green-600 mb-2 font-medium">I Approved</p>
               <p className="text-3xl font-bold text-green-700">{stats.approved}</p>
             </div>
             <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
@@ -113,7 +167,7 @@ const ManagerDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-red-600 mb-2 font-medium">Rejected</p>
+              <p className="text-sm text-red-600 mb-2 font-medium">I Rejected</p>
               <p className="text-3xl font-bold text-red-700">{stats.rejected}</p>
             </div>
             <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
@@ -139,8 +193,13 @@ const ManagerDashboard = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mx-8">
         <div className="px-6 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-800">Recent Access Requests</h2>
-            <button className="inline-flex items-center px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors">
+            <h2 className="text-xl font-semibold text-gray-800">
+              Requests Awaiting Your Approval ({stats.myPending})
+            </h2>
+            <button
+              onClick={() => navigate('/manager/requests')}
+              className="inline-flex items-center px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors"
+            >
               View All Requests
               <ArrowRight className="h-4 w-4 ml-2" />
             </button>
@@ -148,56 +207,92 @@ const ManagerDashboard = () => {
         </div>
 
         <div className="p-6">
-          {mockRequests.length === 0 ? (
+          {loadingRequests ? (
             <div className="text-center py-12">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Activity className="h-10 w-10 text-gray-400" />
               </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">No requests yet</h3>
-              <p className="text-gray-600 mb-6">Access requests will appear here when submitted</p>
+              <h3 className="text-xl font-bold text-gray-800 mb-3">Loading requests...</h3>
+              <p className="text-gray-600 mb-6">Please wait while we fetch the latest requests.</p>
+            </div>
+          ) : myPendingRequests.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="h-10 w-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-3">No requests awaiting your approval</h3>
+              <p className="text-gray-600 mb-6">
+                All requests at your approval level ({getManagerLevelName(getManagerLevel(user?.email || ''))}) have been processed
+              </p>
+              <button
+                onClick={() => navigate('/manager/requests')}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                View All Requests
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
-              {mockRequests.slice(0, 5).map((request) => (
+              {myPendingRequests.slice(0, 5).map((request) => (
                 <div
                   key={request.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100 cursor-pointer"
+                  onClick={() => navigate('/manager-dashboard/requests')}
                 >
-                  <div className="flex items-center space-x-4">
-                    <img 
-                      src={request.avatar} 
-                      alt={request.user}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                    />
-                    <div>
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="font-medium text-gray-900">{request.user}</span>
-                        <span className="text-gray-400">→</span>
-                        <span className="text-gray-600">{request.application}</span>
-                      </div>
-                      <p className="text-sm text-gray-500">{request.requestDate}</p>
-                      {canApprove(request) && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
-                          Requires your approval
+                    <div className="flex items-center space-x-4">
+                    {request.application_logo ? (
+                      <img 
+                        src={request.application_logo} 
+                        alt={request.application_name}
+                        className="w-12 h-12 rounded-lg object-cover border-2 border-white shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center border-2 border-white shadow-sm">
+                        <span className="text-white text-sm font-semibold">
+                          {request.application_name.slice(0, 2).toUpperCase()}
                         </span>
-                      )}
+                      </div>
+                    )}
+                      <div>
+                        <div className="flex items-center space-x-2 mb-1">
+                        <span className="font-medium text-gray-900">{request.user_name}</span>
+                          <span className="text-gray-400">→</span>
+                        <span className="text-gray-600">{request.application_name}</span>
+                        </div>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm text-gray-500">{new Date(request.created_at).toLocaleDateString()}</p>
+                        <span className="text-gray-400">•</span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Level {request.current_level} Approval Required
+                          </span>
+                      </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        request.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      <div className="text-sm text-gray-500 mb-1">
+                        Progress: {request.approvals.filter(a => a.status === 'approved').length}/{request.total_levels}
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge('pending')}`}>
+                        Needs Your Action
                       </span>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-gray-400" />
+                    <ArrowRight className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               ))}
+              
+              {myPendingRequests.length > 5 && (
+                <div className="text-center pt-4">
+                  <button
+                    onClick={() => navigate('/manager/requests')}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    View {myPendingRequests.length - 5} more requests →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

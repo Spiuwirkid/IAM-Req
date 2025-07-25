@@ -63,8 +63,8 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
 
   const handleRoleSelect = (role: any) => {
     if (role.id === 'manager') {
-      setSelectedRole('manager');
-      setShowManagerOptions(true);
+      // Redirect to unified manager login
+      window.location.href = '/manager';
     } else {
       onLogin(role.email, 'demo', role.id);
     }

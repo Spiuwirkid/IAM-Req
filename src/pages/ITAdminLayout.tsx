@@ -1,32 +1,93 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { Shield, User, LogOut, Building2, Bell } from 'lucide-react';
+import { Shield, User, LogOut, Building2, Bell, Settings } from 'lucide-react';
+import { authService, type User as AuthUser } from '../services/authService';
+import { ProfileModal } from '../components/ui/profile-modal';
 
 const ITAdminLayout = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-    }
-  }, []);
+    const loadUser = async () => {
+      try {
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
+        console.log('🏠 ITAdminLayout loaded user:', currentUser);
+      } catch (error) {
+        console.error('ITAdminLayout error loading user:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
+    loadUser();
+
+    // Listen for auth state changes
+    const setupAuthListener = async () => {
+      const authListener = await authService.onAuthStateChange((authUser) => {
+        setUser(authUser);
+        if (!authUser) {
+          navigate('/itadmin-login');
+        }
+      });
+      
+      return authListener?.data?.subscription;
+    };
+
+    let subscription: any = null;
+    setupAuthListener().then(sub => {
+      subscription = sub;
+    });
+
+    return () => subscription?.unsubscribe();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      navigate('/itadmin-login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout anyway
+      navigate('/itadmin-login');
+    }
+  };
+
+  const handleProfileUpdate = async (updates: { name: string; avatar?: string }) => {
+    try {
+      await authService.updateProfile(updates);
+      // Update local user state
+      if (user) {
+        setUser({
+          ...user,
+          name: updates.name,
+          avatar: updates.avatar
+        });
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case 'staff': return 'Staff Member';
-      case 'manager_a': return 'Operations Manager';
-      case 'manager_b': return 'Development Manager';
-      case 'manager_c': return 'Security Manager';
-      case 'it_admin': return 'IT Administrator';
+      case 'manager': return 'Manager';
+      case 'itadmin': return 'IT Administrator';
       default: return role;
     }
   };
@@ -34,10 +95,8 @@ const ITAdminLayout = () => {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'staff': return 'bg-blue-100 text-blue-700';
-      case 'manager_a': return 'bg-blue-600 text-white';
-      case 'manager_b': return 'bg-blue-600 text-white';
-      case 'manager_c': return 'bg-blue-600 text-white';
-      case 'it_admin': return 'bg-blue-800 text-white';
+      case 'manager': return 'bg-blue-600 text-white';
+      case 'itadmin': return 'bg-blue-800 text-white';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -49,15 +108,21 @@ const ITAdminLayout = () => {
     return location.pathname.startsWith(path);
   };
 
-  if (!user) {
+  // Show loading while checking user
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
+  }
+
+  // If no user, don't render anything (ProtectedRoute should handle redirect)
+  if (!user) {
+    return null;
   }
 
   return (
@@ -92,13 +157,26 @@ const ITAdminLayout = () => {
           </div>
 
           {/* User Profile */}
-          <div className="p-6">
+          <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <img 
-                src={user?.avatar} 
-                alt={user?.name} 
-                className="w-12 h-12 rounded-full object-cover"
-              />
+              {/* Avatar */}
+              <div className="relative">
+                {user?.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.name} 
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center">
+                    <span className="text-white text-sm font-semibold">
+                      {user?.name ? getUserInitials(user.name) : <User className="w-6 h-6" />}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* User Info */}
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-800">{user?.name}</div>
                 <div className="text-xs text-gray-500">{user?.department}</div>
@@ -106,6 +184,15 @@ const ITAdminLayout = () => {
                   {getRoleDisplayName(user?.role || '')}
                 </div>
               </div>
+              
+              {/* Settings Button */}
+              <button
+                onClick={() => setIsProfileModalOpen(true)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Profile Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -206,6 +293,22 @@ const ITAdminLayout = () => {
           </div>
         </div>
       </div>
+      {/* Profile Modal */}
+      {user && (
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          onSave={handleProfileUpdate}
+          user={{
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            department: user.department || 'N/A',
+            avatar: user.avatar
+          }}
+        />
+      )}
     </div>
   );
 };

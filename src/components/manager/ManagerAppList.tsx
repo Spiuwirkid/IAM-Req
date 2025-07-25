@@ -1,16 +1,16 @@
 
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Activity, Edit, ChevronDown, ChevronRight, Users } from 'lucide-react';
+import { requestService, type Application } from '../../services/requestService';
 
-interface ManagerAppListProps {
-  onBack: () => void;
-}
-
-const ManagerAppList = ({ onBack }: ManagerAppListProps) => {
+const ManagerAppList = () => {
   const { user } = useOutletContext<{ user: any }>();
+  const navigate = useNavigate();
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [expandedApps, setExpandedApps] = useState<Record<number, boolean>>({});
+  const [expandedApps, setExpandedApps] = useState<Record<string, boolean>>({});
   const [newApp, setNewApp] = useState({
     name: '',
     description: '',
@@ -20,101 +20,50 @@ const ManagerAppList = ({ onBack }: ManagerAppListProps) => {
     logo: '/app-logo/gns3.png' // default logo
   });
 
-  const [applications, setApplications] = useState([
-    {
-      id: 1,
-      name: 'GNS3',
-      description: 'Network simulation and virtualization platform for network engineers',
-      category: 'Networking',
-      businessOwner: 'Network Operations Director',
-      accessLevel: 'Standard User',
-      activeUsers: 45,
-      logo: '/app-logo/gns3.png'
-    },
-    {
-      id: 2,
-      name: 'Proxmox VE',
-      description: 'Virtualization management platform for containers and virtual machines',
-      category: 'Virtualization',
-      businessOwner: 'Infrastructure Director',
-      accessLevel: 'Admin User',
-      activeUsers: 89,
-      logo: '/app-logo/proxmox.png'
-    },
-    {
-      id: 3,
-      name: 'Ubuntu Server',
-      description: 'Linux server operating system for cloud and enterprise environments',
-      category: 'Operating System',
-      businessOwner: 'Systems Administrator',
-      accessLevel: 'SSH Access',
-      activeUsers: 234,
-      logo: '/app-logo/ubuntu.png'
-    },
-    {
-      id: 4,
-      name: 'Windows Server',
-      description: 'Microsoft server operating system for enterprise applications',
-      category: 'Operating System',
-      businessOwner: 'Systems Administrator',
-      accessLevel: 'RDP Access',
-      activeUsers: 198,
-      logo: '/app-logo/windows-server.png'
-    },
-    {
-      id: 5,
-      name: 'Visual Studio',
-      description: 'Integrated development environment for software development',
-      category: 'Development',
-      businessOwner: 'Development Team Lead',
-      accessLevel: 'Professional License',
-      activeUsers: 167,
-      logo: '/app-logo/Visual-Studio-Logo-2019.png'
-    },
-    {
-      id: 6,
-      name: 'VMware ESXi',
-      description: 'Enterprise-class hypervisor for virtualizing servers and workloads',
-      category: 'Virtualization',
-      businessOwner: 'Virtualization Manager',
-      accessLevel: 'Administrator',
-      activeUsers: 76,
-      logo: '/app-logo/vmware-esxi.png'
-    },
-    {
-      id: 7,
-      name: 'AWS Console',
-      description: 'Amazon Web Services cloud platform management console',
-      category: 'Cloud Platform',
-      businessOwner: 'Cloud Operations Director',
-      accessLevel: 'Power User',
-      activeUsers: 123,
-      logo: '/app-logo/AWS.png'
-    },
-    {
-      id: 8,
-      name: 'NextCloud',
-      description: 'Self-hosted file sharing and collaboration platform',
-      category: 'File Sharing',
-      businessOwner: 'IT Security Officer',
-      accessLevel: 'Standard User',
-      activeUsers: 289,
-      logo: '/app-logo/nextcloud.png'
-    }
-  ]);
+  const handleBack = () => {
+    navigate('/manager-dashboard');
+  };
 
-  const categories = ['Sales', 'Development', 'Infrastructure', 'Analytics', 'Communication', 'Documentation', 'Security'];
+  // Load real applications from database
+  useEffect(() => {
+    const loadApplications = async () => {
+      try {
+        setLoadingApplications(true);
+        const apps = await requestService.getApplications();
+        setApplications(apps);
+      } catch (error) {
+        console.error('Error loading applications:', error);
+        setApplications([]);
+      } finally {
+        setLoadingApplications(false);
+      }
+    };
 
-  const handleAddApp = () => {
+    loadApplications();
+  }, []);
+
+  const categories = ['Network Tools', 'Development', 'Operating System', 'Virtualization', 'Cloud Platform', 'File Sharing', 'Security'];
+
+  const handleAddApp = async () => {
     if (newApp.name && newApp.description && newApp.category && newApp.businessOwner) {
-      const app = {
-        id: applications.length + 1,
-        ...newApp,
-        activeUsers: Math.floor(Math.random() * 50) + 5
-      };
-      setApplications([...applications, app]);
-      setNewApp({ name: '', description: '', category: '', businessOwner: '', accessLevel: 'Standard User', logo: '/app-logo/gns3.png' });
-      setShowAddForm(false);
+      try {
+        const appData = {
+          name: newApp.name,
+          description: newApp.description,
+          category: newApp.category,
+          type_level: 'No leveling' as const,
+          managers: [],
+          logo: newApp.logo
+        };
+        
+        const newApplication = await requestService.createApplication(appData);
+        setApplications([...applications, newApplication]);
+        setNewApp({ name: '', description: '', category: '', businessOwner: '', accessLevel: 'Standard User', logo: '/app-logo/gns3.png' });
+        setShowAddForm(false);
+      } catch (error) {
+        console.error('Error creating application:', error);
+        // You might want to show an error message to the user here
+      }
     }
   };
 
@@ -123,13 +72,13 @@ const ManagerAppList = ({ onBack }: ManagerAppListProps) => {
       {/* Header with Floating Background */}
       <div className="px-8 py-8">
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-6">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
-            </button>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleBack}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </button>
             <div style={{ color: '#002A58' }}>
               <div className="text-4xl font-bold leading-tight">
                 <div>APPLICATION</div>
@@ -231,84 +180,110 @@ const ManagerAppList = ({ onBack }: ManagerAppListProps) => {
         </div>
         <div className="p-6">
           <div className="space-y-3">
-            {applications.map((app) => {
-              const isExpanded = expandedApps[app.id];
-              
-              return (
-                <div key={app.id}>
-                  <div 
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100 cursor-pointer"
-                    onClick={() => setExpandedApps(prev => ({ ...prev, [app.id]: !isExpanded }))}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center p-2">
-                        <img 
-                          src={app.logo} 
-                          alt={app.name}
-                          className="w-6 h-6 object-contain"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            target.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                        <Activity className="h-4 w-4 text-blue-600 hidden" />
+            {loadingApplications ? (
+              <div className="text-center py-8">
+                <p>Loading applications...</p>
+                  </div>
+            ) : applications.length === 0 ? (
+              <div className="text-center py-8">
+                <p>No applications found. Add one to get started!</p>
+                    </div>
+            ) : (
+              applications.map((app) => {
+                const isExpanded = expandedApps[app.id];
+                
+                return (
+                  <div key={app.id}>
+                    <div 
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100 cursor-pointer"
+                      onClick={() => setExpandedApps(prev => ({ ...prev, [app.id]: !isExpanded }))}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center p-2">
+                          <img 
+                            src={app.logo} 
+                            alt={app.name}
+                            className="w-6 h-6 object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <Activity className="h-4 w-4 text-blue-600 hidden" />
                       </div>
                       <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">{app.name}</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-sm text-gray-600">{app.category}</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm text-gray-500">
-                          <Users className="h-3 w-3" />
-                          <span>{app.activeUsers} active users</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-gray-900">{app.name}</span>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-sm text-gray-600">{app.category}</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-500">
+                            <Users className="h-3 w-3" />
+                            <span>{app.type_level === 'Leveling' ? `${app.managers.length} managers` : 'Direct access'}</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-3">
+                        <Edit className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                        {isExpanded ? (
+                          <ChevronDown className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <Edit className="h-4 w-4 text-gray-400 hover:text-blue-600" />
-                      {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
+                    
+                    {isExpanded && (
+                      <div className="ml-6 mt-2 p-4 bg-white rounded-lg border border-gray-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700">Description:</span>
+                            <div className="text-gray-900 mt-1">{app.description}</div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Access Type:</span>
+                            <div className="text-gray-900 mt-1">{app.type_level}</div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Status:</span>
+                            <div className="text-gray-900 mt-1">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                app.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {app.is_active ? 'Active' : 'Inactive'}
+                              </span>
                   </div>
-                  
-                  {isExpanded && (
-                    <div className="ml-6 mt-2 p-4 bg-white rounded-lg border border-gray-200">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-700">Description:</span>
-                          <div className="text-gray-900 mt-1">{app.description}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-700">Business Owner:</span>
-                          <div className="text-gray-900 mt-1">{app.businessOwner}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-700">Access Level:</span>
-                          <div className="text-gray-900 mt-1">{app.accessLevel}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-700">Active Users:</span>
-                          <div className="text-gray-900 mt-1 font-semibold">{app.activeUsers}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 mt-4">
-                        <button className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors">
-                          View Users
-                        </button>
-                        <button className="px-3 py-1 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors">
-                          Edit App
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
+                          <div>
+                            <span className="font-medium text-gray-700">Created:</span>
+                            <div className="text-gray-900 mt-1">{new Date(app.created_at).toLocaleDateString()}</div>
+                          </div>
+                          {app.type_level === 'Leveling' && app.managers.length > 0 && (
+                            <div className="md:col-span-2">
+                              <span className="font-medium text-gray-700">Approval Managers:</span>
+                              <div className="text-gray-900 mt-1">{app.managers.join(', ')}</div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-3 mt-4">
+                          <button className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors">
+                            Edit App
+                          </button>
+                          <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                            app.is_active 
+                              ? 'bg-red-500 text-white hover:bg-red-600' 
+                              : 'bg-green-500 text-white hover:bg-green-600'
+                          }`}>
+                            {app.is_active ? 'Deactivate' : 'Activate'}
+                </button>
+              </div>
+            </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

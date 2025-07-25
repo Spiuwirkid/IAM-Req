@@ -1,55 +1,89 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Send, Activity } from 'lucide-react';
 import { requestService } from '../services/requestService';
+import { useCustomToast } from '../components/ui/use-toast';
 
 const RequestPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { showSuccess, showError } = useCustomToast();
+  
+  // Get application details from URL params
+  const appName = searchParams.get('app') || 'Unknown Application';
+  const appDescription = searchParams.get('description') || 'No description available';
+  const appId = searchParams.get('appId') || '';
+  const businessOwner = searchParams.get('businessOwner') || 'IT Department';
+  const accessLevel = searchParams.get('accessLevel') || 'Standard User';
+
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [appLogo, setAppLogo] = useState<string>('');
 
-  // Get app data from URL params
-  const appName = searchParams.get('app') || 'GNS3';
-  const appDescription = searchParams.get('description') || 'Network simulation and virtualization platform for network engineers';
-  const appId = searchParams.get('appId') || '';
-  const businessOwner = searchParams.get('owner') || 'Network Operations Director';
-  const accessLevel = searchParams.get('access') || 'Standard User';
+  // Fetch application logo from database
+  useEffect(() => {
+    const fetchAppLogo = async () => {
+      if (appId) {
+        try {
+          const app = await requestService.getApplicationById(appId);
+          if (app && app.logo) {
+            setAppLogo(app.logo);
+          } else {
+            // Fallback to default logo
+            setAppLogo('https://ozbvvxhhehqubqxqruko.supabase.co/storage/v1/object/public/app-logos/default.png');
+          }
+        } catch (error) {
+          console.error('Error fetching app logo:', error);
+          // Fallback to default logo
+          setAppLogo('https://ozbvvxhhehqubqxqruko.supabase.co/storage/v1/object/public/app-logos/default.png');
+        }
+      }
+    };
+
+    fetchAppLogo();
+  }, [appId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reason.trim()) return;
+    
+    if (!reason.trim()) {
+      showError('Validation Error ❌', 'Please provide a business justification for your request.');
+      return;
+    }
 
     setIsSubmitting(true);
-    
-    try {
-      // Mock user data - in real app this would come from auth
-      const userData = {
-        user_id: 'staff_user_1',
-        user_name: 'Alex Johnson',
-        user_email: 'alex.johnson@company.com'
-      };
 
+    try {
       // Check if we have a valid application ID
       if (!appId) {
         throw new Error('No application ID provided');
       }
 
+      // Create request with current authenticated user
       await requestService.createRequest({
-        ...userData,
         application_id: appId,
-        application_name: appName,
         business_justification: reason,
         requested_access_level: accessLevel,
         requested_duration: '6 months'
       });
 
-      // Show success and redirect
-      alert('Request submitted successfully!');
-      navigate('/staff/myrequest');
+      // Show beautiful success toast
+      showSuccess(
+        'Request Submitted Successfully! 🎉',
+        `Your request for "${appName}" has been sent to Manager A for approval.`
+      );
+      
+      // Navigate to requests page after a short delay
+      setTimeout(() => {
+        navigate('/staff/myrequest');
+      }, 2000);
     } catch (error) {
       console.error('Error submitting request:', error);
-      alert('Failed to submit request. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit request. Please try again.';
+      showError(
+        'Request Failed ❌',
+        errorMessage
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -94,9 +128,14 @@ const RequestPage = () => {
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-white rounded-lg border border-gray-200 flex items-center justify-center">
             <img
-              src={getAppLogo(appName)}
+              src={appLogo || getAppLogo(appName)}
               alt={appName}
               className="w-12 h-12 object-contain"
+              onError={(e) => {
+                // Fallback to default logo if image fails to load
+                const target = e.target as HTMLImageElement;
+                target.src = 'https://ozbvvxhhehqubqxqruko.supabase.co/storage/v1/object/public/app-logos/default.png';
+              }}
             />
           </div>
           <div className="flex-1">
@@ -112,6 +151,29 @@ const RequestPage = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Sequential Approval Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-blue-900 mb-3">Approval Process</h3>
+        <p className="text-blue-800 mb-4">Your request will go through a 3-level approval process:</p>
+        <div className="space-y-2">
+          <div className="flex items-center space-x-3">
+            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">1</div>
+            <span className="text-blue-800">Manager A - First Level Approval</span>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">2</div>
+            <span className="text-blue-800">Manager B - Second Level Approval</span>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">3</div>
+            <span className="text-blue-800">Manager C - Final Approval</span>
+          </div>
+        </div>
+        <p className="text-blue-700 text-sm mt-4">
+          <strong>Note:</strong> All three managers must approve your request for final approval.
+        </p>
       </div>
 
       {/* Request Form */}

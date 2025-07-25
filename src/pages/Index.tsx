@@ -14,7 +14,7 @@ const Index = () => {
       if (userData.role === 'staff') {
         navigate('/staff');
       } else if (userData.role.includes('manager')) {
-        navigate('/manager');
+        navigate('/manager-dashboard');
       } else if (userData.role === 'it_admin') {
         navigate('/itadmin');
       }

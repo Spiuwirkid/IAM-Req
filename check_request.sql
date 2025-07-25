@@ -1,0 +1,1 @@
+SELECT r.id, r.application_name, r.status, aw.level, aw.manager_name, aw.status as approval_status FROM requests r JOIN approval_workflow aw ON r.id = aw.request_id WHERE r.id = '0ec6b28d-0caf-4e0e-8c30-8c593ee4081b';

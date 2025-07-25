@@ -15,7 +15,8 @@ import {
   Layers,
   Clock,
   CheckCircle,
-  Activity
+  Activity,
+  XCircle
 } from 'lucide-react';
 import { requestService, type RequestWithApprovals, type Application } from '../../services/requestService';
 
@@ -36,7 +37,7 @@ const AppCatalog = () => {
         // Load applications from database
         const [apps, requests] = await Promise.all([
           requestService.getApplications(),
-          requestService.getUserRequests('staff_user_1') // Mock user ID
+          requestService.getUserRequests() // Remove hardcoded user ID, use current user
         ]);
         
         setApplications(apps);
@@ -57,9 +58,26 @@ const AppCatalog = () => {
   // Check if user has already requested an application
   const getApplicationStatus = (appName: string) => {
     const existingRequest = userRequests.find(
-      req => req.application_name === appName && req.status === 'pending'
+      req => req.application_name === appName
     );
-    return existingRequest ? 'waiting' : 'available';
+    
+    if (!existingRequest) {
+      return 'available';
+    }
+    
+    if (existingRequest.status === 'approved') {
+      return 'approved';
+    }
+    
+    if (existingRequest.status === 'pending') {
+      return 'waiting';
+    }
+    
+    if (existingRequest.status === 'rejected') {
+      return 'rejected';
+    }
+    
+    return 'available';
   };
 
   // Get unique categories from applications
@@ -77,7 +95,15 @@ const AppCatalog = () => {
     const appStatus = getApplicationStatus(app.name);
     if (appStatus === 'waiting') {
       // Redirect to requests page if already requested
-      navigate('/staff/myrequest');
+      navigate('/staff/requests');
+      return;
+    }
+
+    if (appStatus === 'approved') {
+      // TODO: Implement login functionality for approved applications
+      console.log('User has approved access to:', app.name);
+      // For now, just show a message or redirect to the application
+      alert(`You have approved access to ${app.name}. Please contact IT for login credentials.`);
       return;
     }
 
@@ -164,17 +190,15 @@ const AppCatalog = () => {
                     <div className="flex items-center space-x-3">
                       <div className="w-12 h-12 bg-white rounded-lg border border-gray-200 flex items-center justify-center p-2">
                         <img 
-                          src={app.logo} 
+                          src={app.logo || 'https://ozbvvxhhehqubqxqruko.supabase.co/storage/v1/object/public/app-logos/default.png'} 
                           alt={app.name}
                           className="w-8 h-8 object-contain"
                           onError={(e) => {
-                            // Fallback to icon if logo fails to load
+                            // Fallback to default logo if image fails to load
                             const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            target.nextElementSibling?.classList.remove('hidden');
+                            target.src = 'https://ozbvvxhhehqubqxqruko.supabase.co/storage/v1/object/public/app-logos/default.png';
                           }}
                         />
-                        <Activity className="h-8 w-8 text-gray-600 hidden" />
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800">{app.name}</h3>
@@ -216,23 +240,51 @@ const AppCatalog = () => {
                   </div>
                   
                   <div className="pt-4 border-t border-gray-100 mt-auto">
-                    {getApplicationStatus(app.name) === 'waiting' ? (
-                      <button
-                        onClick={() => handleRequestAccess(app)}
-                        className="w-full flex items-center justify-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 transition-colors"
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Waiting
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleRequestAccess(app)}
-                        className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Request Access
-                      </button>
-                    )}
+                    {(() => {
+                      const status = getApplicationStatus(app.name);
+                      switch (status) {
+                        case 'approved':
+                          return (
+                            <button
+                              onClick={() => handleRequestAccess(app)}
+                              className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Login
+                            </button>
+                          );
+                        case 'waiting':
+                          return (
+                            <button
+                              onClick={() => handleRequestAccess(app)}
+                              className="w-full flex items-center justify-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 transition-colors"
+                            >
+                              <Clock className="h-4 w-4 mr-2" />
+                              Waiting
+                            </button>
+                          );
+                        case 'rejected':
+                          return (
+                            <button
+                              onClick={() => handleRequestAccess(app)}
+                              className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Rejected
+                            </button>
+                          );
+                        default:
+                          return (
+                            <button
+                              onClick={() => handleRequestAccess(app)}
+                              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Request Access
+                            </button>
+                          );
+                      }
+                    })()}
                   </div>
                 </div>
               </div>

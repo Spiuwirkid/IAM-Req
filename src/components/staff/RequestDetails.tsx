@@ -1,12 +1,27 @@
 
-import { ArrowLeft, Calendar, User, MessageSquare, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, User, MessageSquare, CheckCircle, Clock, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { requestService } from '../../services/requestService';
+import { useCustomAlert, showDeleteConfirm, showErrorAlert, showSuccessAlert } from '../ui/custom-alert';
+import { useCustomToast } from '../ui/use-toast';
 
 interface RequestDetailsProps {
   request: any;
   onBack: () => void;
+  onRequestDeleted?: () => void;
 }
 
-const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
+const RequestDetails = ({ request, onBack, onRequestDeleted }: RequestDetailsProps) => {
+  const navigate = useNavigate();
+  const [deletingRequest, setDeletingRequest] = useState(false);
+  const { showAlert, AlertComponent } = useCustomAlert();
+  const { showSuccess, showError } = useCustomToast();
+
+  // Debug logging
+  console.log('🔍 RequestDetails received request:', request);
+  console.log('🔍 RequestDetails approvers:', request.approvers);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
@@ -41,9 +56,52 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
         return <XCircle className="h-4 w-4 text-red-500" />;
       case 'pending':
         return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'not processed':
+        return <div className="h-4 w-4 text-gray-300 flex items-center justify-center">—</div>;
       default:
         return <Clock className="h-4 w-4 text-gray-400" />;
     }
+  };
+
+  // Handle delete request
+  const handleDeleteRequest = async () => {
+    showAlert(showDeleteConfirm(
+      'Cancel Request',
+      `Are you sure you want to cancel your request for "${request.application}"? This action cannot be undone.`,
+      async () => {
+        try {
+          setDeletingRequest(true);
+          console.log('🚀 Starting delete request for:', request.id);
+          
+          await requestService.deleteRequest(request.id);
+          console.log('🎉 Delete successful');
+          
+          // Show beautiful success toast
+          showSuccess(
+            'Request Cancelled Successfully! ✅',
+            `Your request for "${request.application}" has been cancelled and removed.`
+          );
+
+          // Call callback to refresh parent component
+          if (onRequestDeleted) {
+            onRequestDeleted();
+          }
+
+          // Navigate back to requests list
+          setTimeout(() => {
+            navigate('/staff/requests');
+          }, 1500);
+        } catch (error) {
+          console.error('💥 Error deleting request:', error);
+          showError(
+            'Cancel Failed ❌',
+            `Failed to cancel request: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
+        } finally {
+          setDeletingRequest(false);
+        }
+      }
+    ));
   };
 
   return (
@@ -144,9 +202,11 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                           approver.status === 'approved' ? 'bg-green-100 text-green-800' :
                           approver.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          approver.status === 'not processed' ? 'bg-gray-100 text-gray-500' :
                           'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {approver.status.charAt(0).toUpperCase() + approver.status.slice(1)}
+                          {approver.status === 'not processed' ? 'Not Processed' :
+                           approver.status.charAt(0).toUpperCase() + approver.status.slice(1)}
                         </span>
                       </div>
                       {approver.date && (
@@ -156,6 +216,9 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
                       )}
                       {approver.status === 'pending' && (
                         <p className="text-xs text-gray-500 mt-1">Pending approval</p>
+                      )}
+                      {approver.status === 'not processed' && (
+                        <p className="text-xs text-gray-400 mt-1">Request never reached this level</p>
                       )}
                     </div>
                   </div>
@@ -202,8 +265,22 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
                   <button className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm">
                     Send Reminder
                   </button>
-                  <button className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm">
-                    Cancel Request
+                  <button 
+                    onClick={handleDeleteRequest}
+                    disabled={deletingRequest}
+                    className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {deletingRequest ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700 mr-2"></div>
+                        Cancelling...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Cancel Request
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -224,6 +301,7 @@ const RequestDetails = ({ request, onBack }: RequestDetailsProps) => {
           </div>
         </div>
       </div>
+      {AlertComponent}
     </div>
   );
 };

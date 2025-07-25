@@ -39,7 +39,7 @@ const Login = () => {
     if (role === 'staff') {
       navigate('/staff');
     } else if (role.includes('manager')) {
-      navigate('/manager');
+      navigate('/manager-dashboard');
     } else if (role === 'it_admin') {
       navigate('/itadmin');
     }
@@ -56,7 +56,7 @@ const Login = () => {
       if (userData.role === 'staff') {
         navigate('/staff');
       } else if (userData.role.includes('manager')) {
-        navigate('/manager');
+        navigate('/manager-dashboard');
       } else if (userData.role === 'it_admin') {
         navigate('/itadmin');
       }

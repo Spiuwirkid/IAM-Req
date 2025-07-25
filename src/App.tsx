@@ -6,6 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import StaffLogin from "./pages/StaffLogin";
+import ManagerLogin from "./pages/ManagerLogin";
+import ManagerALogin from "./pages/ManagerALogin";
+import ManagerBLogin from "./pages/ManagerBLogin";
+import ManagerCLogin from "./pages/ManagerCLogin";
+import ITAdminLogin from "./pages/ITAdminLogin";
 import StaffLayout from "./pages/StaffLayout";
 import ManagerLayout from "./pages/ManagerLayout";
 import ITAdminLayout from "./pages/ITAdminLayout";
@@ -35,6 +41,14 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           
+          {/* Login Routes */}
+          <Route path="/staff-login" element={<StaffLogin />} />
+          <Route path="/manager" element={<ManagerLogin />} />
+          <Route path="/manager-a" element={<ManagerALogin />} />
+          <Route path="/manager-b" element={<ManagerBLogin />} />
+          <Route path="/manager-c" element={<ManagerCLogin />} />
+          <Route path="/itadmin-login" element={<ITAdminLogin />} />
+          
           {/* Staff Routes */}
           <Route path="/staff" element={<ProtectedRoute role="staff"><StaffLayout /></ProtectedRoute>}>
             <Route index element={<StaffDashboard />} />
@@ -44,7 +58,7 @@ const App = () => (
           </Route>
           
           {/* Manager Routes */}
-          <Route path="/manager" element={<ProtectedRoute role="manager"><ManagerLayout /></ProtectedRoute>}>
+          <Route path="/manager-dashboard" element={<ProtectedRoute role="manager"><ManagerLayout /></ProtectedRoute>}>
             <Route index element={<ManagerDashboard />} />
             <Route path="requests" element={<ManagerRequests />} />
             <Route path="campaigns" element={<ManagerCampaigns />} />

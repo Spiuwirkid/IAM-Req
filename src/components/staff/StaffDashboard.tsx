@@ -29,8 +29,7 @@ const StaffDashboard = () => {
     const loadRequests = async () => {
       try {
         setLoadingRequests(true);
-        // Mock user ID - in real app this would come from auth
-        const requests = await requestService.getUserRequests('staff_user_1');
+        const requests = await requestService.getUserRequests();
         setRealRequests(requests);
       } catch (error) {
         console.error('Error loading requests:', error);
@@ -44,41 +43,83 @@ const StaffDashboard = () => {
   }, []);
 
   // Helper function to determine approval status based on level and current level
-  const getApprovalStatus = (approval: any, currentLevel: number) => {
+  const getApprovalStatus = (approval: any, currentLevel: number, requestStatus: string) => {
+    // If request is already approved or rejected, show final status
+    if (requestStatus === 'approved' || requestStatus === 'rejected') {
+      return approval.status;
+    }
+    
     if (approval.status === 'approved') return 'approved';
     if (approval.status === 'rejected') return 'rejected';
     
     // For pending approvals, check if it's current level or waiting
     if (approval.level === currentLevel) {
-      return 'need approval';
+      return 'need approval'; // This manager needs to act now
     } else if (approval.level > currentLevel) {
-      return 'still waiting';
+      return 'still waiting'; // Future approval levels
     } else {
-      return 'pending';
+      return 'pending'; // Should not happen in normal flow
     }
   };
 
   // Transform real requests for display
-  const displayRequests = realRequests.map(req => ({
-    id: req.id,
-    application: req.application_name,
-    logo: req.application_logo,
-    status: req.status === 'pending' ? 'waiting' : req.status,
-    requestDate: new Date(req.created_at).toISOString().split('T')[0],
-    approvedDate: req.status === 'approved' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
-    rejectedDate: req.status === 'rejected' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
-    reason: req.business_justification,
-    rejectionReason: req.rejection_reason || null,
-    isLeveling: req.total_levels > 1,
-    approvers: req.approvals
+  const displayRequests = realRequests.map(req => {
+    console.log('🔍 Processing request:', { 
+      id: req.id, 
+      status: req.status, 
+      application_name: req.application_name,
+      approvals: req.approvals
+    });
+    
+    const processedApprovers = req.approvals
       .sort((a, b) => a.level - b.level)
-      .map(approval => ({
-        name: approval.manager_name,
-        status: getApprovalStatus(approval, req.current_level),
-        date: approval.approved_at ? new Date(approval.approved_at).toISOString().split('T')[0] : null,
-        comment: approval.comments
-      }))
-  }));
+      .map(approval => {
+        // If request is rejected, check if this level was reached
+        if (req.status === 'rejected') {
+          // Find the level where rejection happened
+          const rejectedLevel = req.approvals.find(a => a.status === 'rejected')?.level;
+          
+          console.log(`🔍 Request ${req.id}: Checking approval level ${approval.level}, rejected at level ${rejectedLevel}`);
+          
+          // If this approval level is higher than the rejection level, it was never processed
+          if (rejectedLevel && approval.level > rejectedLevel) {
+            console.log(`🔍 Request ${req.id}: Level ${approval.level} (${approval.manager_name}) marked as NOT PROCESSED`);
+            return {
+              name: approval.manager_name,
+              status: 'not processed',
+              date: null,
+              comment: null
+            };
+          }
+        }
+        
+        const status = getApprovalStatus(approval, req.current_level, req.status);
+        console.log(`🔍 Request ${req.id}: Level ${approval.level} (${approval.manager_name}) status: ${status}`);
+        
+        return {
+          name: approval.manager_name,
+          status: status,
+          date: approval.approved_at ? new Date(approval.approved_at).toISOString().split('T')[0] : null,
+          comment: approval.comments
+        };
+      });
+    
+    console.log('🔍 Final processed approvers:', processedApprovers);
+    
+    return {
+      id: req.id,
+      application: req.application_name,
+      logo: req.application_logo,
+      status: req.status === 'pending' ? 'waiting' : req.status,
+      requestDate: new Date(req.created_at).toISOString().split('T')[0],
+      approvedDate: req.status === 'approved' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
+      rejectedDate: req.status === 'rejected' ? new Date(req.updated_at).toISOString().split('T')[0] : null,
+      reason: req.business_justification,
+      rejectionReason: req.rejection_reason || null,
+      isLeveling: req.total_levels > 1,
+      approvers: processedApprovers
+    };
+  });
 
   const stats = {
     total: displayRequests.length,
@@ -278,9 +319,9 @@ const StaffDashboard = () => {
                     
                     <div className="flex items-center space-x-3">
                       <div className="text-right">
-                        <span className={getStatusBadge(request.status)}>
-                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                        </span>
+                    <span className={getStatusBadge(request.status)}>
+                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                    </span>
                         <p className={`text-sm ${approvalStatus.color}`}>
                           {approvalStatus.text}
                         </p>

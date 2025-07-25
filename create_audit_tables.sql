@@ -1,0 +1,1 @@
+-- Create additional tables for audit campaign functionality
