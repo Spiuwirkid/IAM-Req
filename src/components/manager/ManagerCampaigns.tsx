@@ -106,7 +106,7 @@ export default function ManagerCampaigns() {
           return false;
         }
 
-        // Check if current user is assigned to this campaign
+        // Check if current user is assigned to this campaign using multiple matching strategies
         const isAssigned = campaign.assigned_managers.some(manager => {
           // Safety check for manager string
           if (!manager || typeof manager !== 'string') {
@@ -114,15 +114,44 @@ export default function ManagerCampaigns() {
             return false;
           }
 
-          const managerLower = manager.toLowerCase();
-          const userNameLower = user.name.toLowerCase();
-          const userRoleLower = user.role.toLowerCase();
+          const managerStr = manager.toLowerCase().trim();
+          const userEmail = user.email.toLowerCase().trim();
+          const userName = user.name.toLowerCase().trim();
           
-          console.log(`🔍 Checking manager: "${manager}" against user: "${user.name}" (${user.role})`);
+          console.log(`🔍 Checking manager: "${managerStr}" against user email: "${userEmail}" and name: "${userName}"`);
           
-          return managerLower.includes(userNameLower) || 
-                 managerLower.includes(userRoleLower) ||
-                 (user.role === 'manager' && managerLower.includes('manager'));
+          // Strategy 1: Direct email matching
+          if (managerStr === userEmail) {
+            console.log(`✅ Direct email match found for campaign: ${campaign.name}`);
+            return true;
+          }
+          
+          // Strategy 2: Manager name matching (e.g., "Manager A" vs "Manager A")
+          if (managerStr === userName) {
+            console.log(`✅ Manager name match found for campaign: ${campaign.name}`);
+            return true;
+          }
+          
+          // Strategy 3: Manager ID matching (e.g., "manager_a" vs "manager.a@gmail.com")
+          const managerIdMap = {
+            'manager_a': 'manager.a@gmail.com',
+            'manager_b': 'manager.b@gmail.com', 
+            'manager_c': 'manager.c@gmail.com'
+          };
+          
+          const mappedEmail = managerIdMap[managerStr as keyof typeof managerIdMap];
+          if (mappedEmail && mappedEmail === userEmail) {
+            console.log(`✅ Manager ID match found for campaign: ${campaign.name}`);
+            return true;
+          }
+          
+          // Strategy 4: Partial email matching (e.g., "manager.a" vs "manager.a@gmail.com")
+          if (userEmail.includes(managerStr) || managerStr.includes(userEmail.split('@')[0])) {
+            console.log(`✅ Partial email match found for campaign: ${campaign.name}`);
+            return true;
+          }
+          
+          return false;
         });
 
         console.log(`🔍 Campaign "${campaign.name}" assigned: ${isAssigned}`);

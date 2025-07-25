@@ -49,9 +49,9 @@ export default function ITAdminCampaigns() {
   });
 
   const managerOptions = [
-    { id: 'manager_a', name: 'Manager A' },
-    { id: 'manager_b', name: 'Manager B' },
-    { id: 'manager_c', name: 'Manager C' }
+    { id: 'manager.a@gmail.com', name: 'Manager A' },
+    { id: 'manager.b@gmail.com', name: 'Manager B' },
+    { id: 'manager.c@gmail.com', name: 'Manager C' }
   ];
 
   useEffect(() => {

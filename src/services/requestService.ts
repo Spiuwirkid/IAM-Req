@@ -953,6 +953,23 @@ export const requestService = {
             assigned_managers = campaign.assigned_managers.filter(manager => 
               manager && typeof manager === 'string' && manager.trim() !== ''
             );
+            
+            // Normalize manager assignments to use consistent email format
+            assigned_managers = assigned_managers.map(manager => {
+              const managerStr = manager.toLowerCase().trim();
+              
+              // Map manager IDs to email format for consistency
+              const managerIdMap = {
+                'manager_a': 'manager.a@gmail.com',
+                'manager_b': 'manager.b@gmail.com',
+                'manager_c': 'manager.c@gmail.com',
+                'manager a': 'manager.a@gmail.com',
+                'manager b': 'manager.b@gmail.com',
+                'manager c': 'manager.c@gmail.com'
+              };
+              
+              return managerIdMap[managerStr as keyof typeof managerIdMap] || manager;
+            });
           }
           
           // Ensure all required fields have default values
